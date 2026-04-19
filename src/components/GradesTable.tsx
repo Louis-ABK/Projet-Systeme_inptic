@@ -1,8 +1,9 @@
-import { Student, S5_SUBJECTS, S6_SUBJECTS, getDecision, getMention, getCreditsS5, getCreditsS6, S5Grades, S6Grades } from "@/data/students";
+import { Student, S5_SUBJECTS, S6_SUBJECTS, getDecision, getMention, getCreditsS5, getCreditsS6 } from "@/data/students";
 import { Grade } from "./Grade";
 import { Button } from "./ui/button";
 import { FileText } from "lucide-react";
 import { Card } from "./ui/card";
+import { cn } from "@/lib/utils";
 
 interface Props {
   students: Student[];
