@@ -33,11 +33,9 @@ const classAverages = {
 };
 
 export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
-  if (!student) return null;
-
   const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
-  // Calcul du rang
+  // Calcul du rang (toujours appelé, hooks avant tout return)
   const rank = useMemo(() => {
     if (!student) return 0;
     const sorted = [...STUDENTS].sort((a, b) => {
@@ -47,6 +45,8 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
     });
     return sorted.findIndex((s) => s.matricule === student.matricule) + 1;
   }, [student, view]);
+
+  if (!student) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
