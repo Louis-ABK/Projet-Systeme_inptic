@@ -24,14 +24,8 @@ import { useToast } from "@/hooks/use-toast";
 type Sem = "s5" | "s6";
 
 // Validation : note 0-20, absence >= 0
-const noteSchema = z
-  .number({ invalid_type_error: "Doit être un nombre" })
-  .min(0, "Min 0")
-  .max(20, "Max 20");
-const absenceSchema = z
-  .number({ invalid_type_error: "Heures invalides" })
-  .min(0, "Min 0")
-  .max(200, "Max 200h");
+const noteSchema = z.number().min(0, "Min 0").max(20, "Max 20");
+const absenceSchema = z.number().min(0, "Min 0").max(200, "Max 200h");
 
 interface SubjectEntry {
   cc: string;
