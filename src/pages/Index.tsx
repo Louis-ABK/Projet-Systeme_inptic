@@ -2,15 +2,18 @@ import { useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { GradesTable } from "@/components/GradesTable";
 import { BulletinModal } from "@/components/BulletinModal";
+import { GradeEntry } from "@/components/GradeEntry";
 import { STUDENTS, Student } from "@/data/students";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search } from "lucide-react";
+import { Search, ClipboardList, Table2 } from "lucide-react";
 
 type View = "s5" | "s6" | "annuel";
+type Mode = "consult" | "entry";
 
 const Index = () => {
+  const [mode, setMode] = useState<Mode>("consult");
   const [view, setView] = useState<View>("annuel");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Student | null>(null);
