@@ -49,55 +49,64 @@ const Index = () => {
       <AppHeader />
 
       <main className="container mx-auto px-4 py-6 space-y-5 animate-fade-in">
-        {/* Synthèse compacte (texte uniquement, sans diagrammes) */}
-        <Card className="p-4 shadow-card-soft border-border/60 bg-gradient-to-r from-primary/5 to-transparent">
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
-            <div><span className="text-muted-foreground">Effectif total :</span> <strong className="text-primary">{stats.total} étudiants</strong></div>
-            <div><span className="text-muted-foreground">Moyenne promotion :</span> <strong className="text-primary tabular-nums">{stats.moy.toFixed(2)}/20</strong></div>
-            <div><span className="text-muted-foreground">Admis directs :</span> <strong className="text-success">{stats.admis}</strong></div>
-            <div><span className="text-muted-foreground">Par compensation :</span> <strong className="text-warning">{stats.compensation}</strong></div>
-            <div><span className="text-muted-foreground">Ajournés :</span> <strong className="text-destructive">{stats.refuses}</strong></div>
-          </div>
-        </Card>
+        {/* Sélecteur de mode : Consultation vs Saisie */}
+        <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+          <TabsList className="h-11 bg-muted">
+            <TabsTrigger value="consult" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold px-5">
+              <Table2 className="h-4 w-4 mr-1.5" /> Tableau de bord
+            </TabsTrigger>
+            <TabsTrigger value="entry" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold px-5">
+              <ClipboardList className="h-4 w-4 mr-1.5" /> Saisie des notes
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        {/* Controls */}
-        <Card className="p-4 shadow-card-soft border-border/60">
-          <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-            <Tabs value={view} onValueChange={(v) => setView(v as View)} className="w-full lg:w-auto">
-              <TabsList className="grid grid-cols-3 lg:w-[440px] h-11 bg-muted">
-                <TabsTrigger value="s5" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold">
-                  Semestre 5
-                </TabsTrigger>
-                <TabsTrigger value="s6" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold">
-                  Semestre 6
-                </TabsTrigger>
-                <TabsTrigger value="annuel" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold">
-                  Bilan Annuel
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+        {mode === "entry" ? (
+          <GradeEntry />
+        ) : (
+          <>
+            <Card className="p-4 shadow-card-soft border-border/60 bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
+                <div><span className="text-muted-foreground">Effectif total :</span> <strong className="text-primary">{stats.total} étudiants</strong></div>
+                <div><span className="text-muted-foreground">Moyenne promotion :</span> <strong className="text-primary tabular-nums">{stats.moy.toFixed(2)}/20</strong></div>
+                <div><span className="text-muted-foreground">Admis directs :</span> <strong className="text-success">{stats.admis}</strong></div>
+                <div><span className="text-muted-foreground">Par compensation :</span> <strong className="text-warning">{stats.compensation}</strong></div>
+                <div><span className="text-muted-foreground">Ajournés :</span> <strong className="text-destructive">{stats.refuses}</strong></div>
+              </div>
+            </Card>
 
-            <div className="relative w-full lg:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher (nom, matricule…)"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-11"
-              />
-            </div>
-          </div>
+            <Card className="p-4 shadow-card-soft border-border/60">
+              <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+                <Tabs value={view} onValueChange={(v) => setView(v as View)} className="w-full lg:w-auto">
+                  <TabsList className="grid grid-cols-3 lg:w-[440px] h-11 bg-muted">
+                    <TabsTrigger value="s5" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold">Semestre 5</TabsTrigger>
+                    <TabsTrigger value="s6" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold">Semestre 6</TabsTrigger>
+                    <TabsTrigger value="annuel" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold">Bilan Annuel</TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
-          <div className="mt-3 text-xs text-muted-foreground flex flex-wrap gap-x-5 gap-y-1">
-            <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-destructive/15 border border-destructive/40" /> Note &lt; 10 (en rouge)</span>
-            <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-success/15 border border-success/40" /> Excellence ≥ 14</span>
-            <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-warning/15 border border-warning/40" /> Compensation S5/S6</span>
-            <span>Règle : <strong>Admis</strong> si Moyenne Générale ≥ 10/20</span>
-          </div>
-        </Card>
+                <div className="relative w-full lg:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher (nom, matricule…)"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9 h-11"
+                  />
+                </div>
+              </div>
 
-        {/* Table */}
-        <GradesTable students={filtered} view={view} onShowBulletin={showBulletin} />
+              <div className="mt-3 text-xs text-muted-foreground flex flex-wrap gap-x-5 gap-y-1">
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-destructive/15 border border-destructive/40" /> Note &lt; 10 (en rouge)</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-success/15 border border-success/40" /> Excellence ≥ 14</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-warning/15 border border-warning/40" /> Compensation S5/S6</span>
+                <span>Règle : <strong>Admis</strong> si Moyenne Générale ≥ 10/20</span>
+              </div>
+            </Card>
+
+            <GradesTable students={filtered} view={view} onShowBulletin={showBulletin} />
+          </>
+        )}
 
         <p className="text-center text-xs text-muted-foreground pt-2">
           INPTIC · Licence Professionnelle Réseaux et Télécommunications · Option ASUR · Promotion 2025/2026
