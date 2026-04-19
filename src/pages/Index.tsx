@@ -6,7 +6,7 @@ import { STUDENTS, Student } from "@/data/students";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search, Users, TrendingUp, Award, AlertTriangle } from "lucide-react";
+import { Search } from "lucide-react";
 
 type View = "s5" | "s6" | "annuel";
 
@@ -45,15 +45,17 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <AppHeader />
 
-      <main className="container mx-auto px-4 py-6 space-y-6 animate-fade-in">
-        {/* Stats cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <StatCard icon={Users} label="Étudiants" value={stats.total.toString()} tone="primary" />
-          <StatCard icon={TrendingUp} label="Moyenne promo" value={stats.moy.toFixed(2)} tone="primary" />
-          <StatCard icon={Award} label="Admis directs" value={stats.admis.toString()} tone="success" />
-          <StatCard icon={Award} label="Par compensation" value={stats.compensation.toString()} tone="warning" />
-          <StatCard icon={AlertTriangle} label="Ajournés" value={stats.refuses.toString()} tone="destructive" />
-        </div>
+      <main className="container mx-auto px-4 py-6 space-y-5 animate-fade-in">
+        {/* Synthèse compacte (texte uniquement, sans diagrammes) */}
+        <Card className="p-4 shadow-card-soft border-border/60 bg-gradient-to-r from-primary/5 to-transparent">
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
+            <div><span className="text-muted-foreground">Effectif total :</span> <strong className="text-primary">{stats.total} étudiants</strong></div>
+            <div><span className="text-muted-foreground">Moyenne promotion :</span> <strong className="text-primary tabular-nums">{stats.moy.toFixed(2)}/20</strong></div>
+            <div><span className="text-muted-foreground">Admis directs :</span> <strong className="text-success">{stats.admis}</strong></div>
+            <div><span className="text-muted-foreground">Par compensation :</span> <strong className="text-warning">{stats.compensation}</strong></div>
+            <div><span className="text-muted-foreground">Ajournés :</span> <strong className="text-destructive">{stats.refuses}</strong></div>
+          </div>
+        </Card>
 
         {/* Controls */}
         <Card className="p-4 shadow-card-soft border-border/60">
@@ -101,28 +103,6 @@ const Index = () => {
 
       <BulletinModal student={selected} view={view} open={open} onOpenChange={setOpen} />
     </div>
-  );
-};
-
-const StatCard = ({ icon: Icon, label, value, tone }: { icon: any; label: string; value: string; tone: "primary" | "success" | "warning" | "destructive" }) => {
-  const toneClass = {
-    primary: "from-primary to-primary-light text-primary-foreground",
-    success: "from-success/90 to-success text-success-foreground",
-    warning: "from-warning/90 to-warning text-warning-foreground",
-    destructive: "from-destructive/90 to-destructive text-destructive-foreground",
-  }[tone];
-  return (
-    <Card className={`p-3.5 shadow-card-soft bg-gradient-to-br ${toneClass} border-0`}>
-      <div className="flex items-center gap-3">
-        <div className="bg-white/20 rounded-md p-2">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-wider opacity-90 truncate">{label}</p>
-          <p className="text-2xl font-bold font-serif tabular-nums">{value}</p>
-        </div>
-      </div>
-    </Card>
   );
 };
 
