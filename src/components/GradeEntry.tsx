@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import {
 import { Save, RotateCcw, AlertCircle, CheckCircle2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { saveIdentity as persistIdentity, loadIdentity } from "@/lib/identity-store";
 
 type Sem = "s5" | "s6";
 
