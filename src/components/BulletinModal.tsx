@@ -1,10 +1,29 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Student, S5_SUBJECTS, S6_SUBJECTS, STUDENTS, getDecision, getMention, getCreditsS5, getCreditsS6 } from "@/data/students";
+import {
+  Student,
+  S5_SUBJECTS,
+  S6_SUBJECTS,
+  STUDENTS,
+  getDecision,
+  getMention,
+  getCreditsS5,
+  getCreditsS6,
+} from "@/data/students";
 import { Button } from "@/components/ui/button";
-import { Printer, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Printer, X, Download, ChevronDown } from "lucide-react";
 import logo from "@/assets/logo-inptic.jpg";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
+import { exportBulletinToPDF } from "@/lib/pdf-export";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   student: Student | null;
@@ -13,7 +32,7 @@ interface Props {
   onOpenChange: (o: boolean) => void;
 }
 
-// Pré-calcul des moyennes de classe par matière (statique sur les 24 étudiants)
+// Pré-calcul des moyennes de classe par matière
 const classAverages = {
   s5: Object.fromEntries(
     S5_SUBJECTS.map((s) => [
@@ -32,10 +51,66 @@ const classAverages = {
   annuel: STUDENTS.reduce((a, s) => a + s.moyenneGenerale, 0) / STUDENTS.length,
 };
 
-export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
-  const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+type IdentityFields = {
+  dateNaissance: string;
+  lieuNaissance: string;
+  bac: string;
+  etablissement: string;
+};
 
-  // Calcul du rang (toujours appelé, hooks avant tout return)
+const IDENTITY_KEY = "inptic_identity_v1";
+
+const loadIdentity = (matricule: string): IdentityFields => {
+  try {
+    const all = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "{}");
+    return (
+      all[matricule] || {
+        dateNaissance: "",
+        lieuNaissance: "",
+        bac: "",
+        etablissement: "",
+      }
+    );
+  } catch {
+    return { dateNaissance: "", lieuNaissance: "", bac: "", etablissement: "" };
+  }
+};
+
+const saveIdentity = (matricule: string, data: IdentityFields) => {
+  try {
+    const all = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "{}");
+    all[matricule] = data;
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify(all));
+  } catch {
+    // ignore
+  }
+};
+
+export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
+  const today = new Date().toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const printRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const [identity, setIdentity] = useState<IdentityFields>(() =>
+    student ? loadIdentity(student.matricule) : { dateNaissance: "", lieuNaissance: "", bac: "", etablissement: "" }
+  );
+  const [editIdentity, setEditIdentity] = useState(false);
+
+  // Reset identity quand l'étudiant change
+  useMemo(() => {
+    if (student) setIdentity(loadIdentity(student.matricule));
+  }, [student?.matricule]);
+
+  const updateIdentity = (field: keyof IdentityFields, value: string) => {
+    if (!student) return;
+    const next = { ...identity, [field]: value };
+    setIdentity(next);
+    saveIdentity(student.matricule, next);
+  };
+
   const rank = useMemo(() => {
     if (!student) return 0;
     const sorted = [...STUDENTS].sort((a, b) => {
@@ -48,16 +123,56 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
 
   if (!student) return null;
 
+  const handlePrint = () => {
+    // Impression directe — le CSS @media print isole .print-area
+    window.print();
+  };
+
+  const handleExportPDF = async () => {
+    if (!printRef.current) return;
+    try {
+      toast({ title: "Génération du PDF…", description: "Veuillez patienter" });
+      const viewLabel = view === "s5" ? "S5" : view === "s6" ? "S6" : "Annuel";
+      const filename = `Bulletin_${viewLabel}_${student.nom}_${student.prenom}.pdf`;
+      await exportBulletinToPDF(printRef.current, filename);
+      toast({ title: "PDF téléchargé", description: filename });
+    } catch (e) {
+      toast({
+        title: "Erreur PDF",
+        description: "Impossible de générer le PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const titleLabel =
+    view === "s5"
+      ? "Bulletin de notes du Semestre 5"
+      : view === "s6"
+      ? "Bulletin de Notes du Semestre 6"
+      : "Bulletin de notes Annuel";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[860px] max-h-[94vh] overflow-y-auto p-0 bg-background">
+        {/* Barre d'actions (cachée à l'impression) */}
         <div className="no-print sticky top-0 z-20 flex items-center justify-between px-4 py-2 bg-primary text-primary-foreground border-b border-primary-dark">
-          <span className="text-sm font-semibold">
-            Bulletin officiel — {student.nom} {student.prenom}
+          <span className="text-sm font-semibold truncate">
+            {titleLabel} — {student.nom} {student.prenom}
           </span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="secondary" onClick={() => window.print()}>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setEditIdentity((v) => !v)}
+            >
+              {editIdentity ? "Masquer infos" : "Compléter infos"}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handlePrint}>
               <Printer className="h-3.5 w-3.5 mr-1.5" /> Imprimer
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleExportPDF}>
+              <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
             </Button>
             <Button
               size="sm"
@@ -70,8 +185,54 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
           </div>
         </div>
 
-        {/* Document — format A4 reproduit fidèlement */}
-        <div className="print-area bg-white text-black px-10 py-8" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
+        {/* Panneau d'édition identité (hors impression) */}
+        {editIdentity && (
+          <div className="no-print bg-muted/40 border-b border-border px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Date de naissance</Label>
+              <Input
+                type="date"
+                value={identity.dateNaissance}
+                onChange={(e) => updateIdentity("dateNaissance", e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Lieu de naissance</Label>
+              <Input
+                value={identity.lieuNaissance}
+                onChange={(e) => updateIdentity("lieuNaissance", e.target.value)}
+                placeholder="Ex. Libreville"
+                className="h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Type de baccalauréat</Label>
+              <Input
+                value={identity.bac}
+                onChange={(e) => updateIdentity("bac", e.target.value)}
+                placeholder="Ex. Bac C / D / Technique…"
+                className="h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Établissement d'origine</Label>
+              <Input
+                value={identity.etablissement}
+                onChange={(e) => updateIdentity("etablissement", e.target.value)}
+                placeholder="Ex. Lycée National Léon MBA"
+                className="h-9"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* DOCUMENT IMPRIMABLE — A4 */}
+        <div
+          ref={printRef}
+          className="print-area bg-white text-black px-10 py-8"
+          style={{ fontFamily: "'Times New Roman', Times, serif" }}
+        >
           {/* En-tête tripartite officiel */}
           <div className="grid grid-cols-3 gap-3 items-start mb-3">
             <div className="text-[10px] leading-snug">
@@ -93,12 +254,10 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
             </div>
           </div>
 
-          {/* Titre du bulletin */}
+          {/* Titre */}
           <div className="text-center my-5">
             <h1 className="text-[20px] font-bold underline underline-offset-4 decoration-2">
-              {view === "s5" && "Bulletin de notes du Semestre 5"}
-              {view === "s6" && "Bulletin de Notes du Semestre 6"}
-              {view === "annuel" && "Bulletin de notes Annuel"}
+              {titleLabel}
             </h1>
             <p className="text-[12px] mt-1.5">
               Année universitaire : <strong>2025 / 2026</strong>
@@ -124,9 +283,55 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1.5 bg-[#f0f0f0]">
+                  Date et lieu de naissance
+                </td>
+                <td className="border border-black px-2 py-1.5">
+                  {identity.dateNaissance || identity.lieuNaissance ? (
+                    <>
+                      Né(e) le{" "}
+                      {identity.dateNaissance
+                        ? new Date(identity.dateNaissance).toLocaleDateString("fr-FR")
+                        : "…"}{" "}
+                      à {identity.lieuNaissance || "…"}
+                    </>
+                  ) : (
+                    <span className="italic text-gray-500">
+                      Né(e) le ……………………… à ………………………
+                    </span>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1.5 bg-[#f0f0f0]">
+                  Type de baccalauréat
+                </td>
+                <td className="border border-black px-2 py-1.5">
+                  {identity.bac || (
+                    <span className="italic text-gray-500">
+                      ………………………………………………………
+                    </span>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1.5 bg-[#f0f0f0]">
+                  Établissement d'origine
+                </td>
+                <td className="border border-black px-2 py-1.5">
+                  {identity.etablissement || (
+                    <span className="italic text-gray-500">
+                      ………………………………………………………
+                    </span>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1.5 bg-[#f0f0f0]">
                   Numéro étudiant (matricule)
                 </td>
-                <td className="border border-black px-2 py-1.5 font-mono">{student.matricule}</td>
+                <td className="border border-black px-2 py-1.5 font-mono">
+                  {student.matricule}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -138,12 +343,14 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
           {/* Pied de page officiel */}
           <div className="mt-6 grid grid-cols-2 gap-6">
             <div className="text-[10px] italic leading-snug pt-4">
-              Il ne sera délivré qu'un seul et unique exemplaire de bulletin de notes. L'étudiant
-              est donc prié d'en faire plusieurs copies légalisées.
+              Il ne sera délivré qu'un seul et unique exemplaire de bulletin de notes.
+              L'étudiant est donc prié d'en faire plusieurs copies légalisées.
             </div>
             <div className="text-[11px] text-center">
               <p>Fait à Libreville, le {today}</p>
-              <p className="mt-1 font-semibold uppercase">Le Directeur des Études et de la Pédagogie</p>
+              <p className="mt-1 font-semibold uppercase">
+                Le Directeur des Études et de la Pédagogie
+              </p>
               <div className="h-12" />
               <p className="font-bold">Davy Edgard MOUSSAVOU</p>
             </div>
@@ -154,7 +361,6 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
   );
 };
 
-// Note avec couleur rouge si < 10
 const Note = ({ v, bold = false }: { v: number; bold?: boolean }) => (
   <span className={cn("tabular-nums", bold && "font-bold", v < 10 && "text-[#c00] font-bold")}>
     {v.toFixed(2).replace(".", ",")}
@@ -192,11 +398,9 @@ const SemesterBulletin = ({
 
   const totalCoefAll = subjects.reduce((a, b) => a + b.coef, 0);
 
-  // Crédits acquis par UE
   const creditsForUE = (ueName: string) => {
     const subs = subjects.filter((s) => s.ue === ueName);
-    const acquis = subs.filter((s) => (grades as any)[s.key] >= 10).reduce((a, b) => a + b.credits, 0);
-    return acquis;
+    return subs.filter((s) => (grades as any)[s.key] >= 10).reduce((a, b) => a + b.credits, 0);
   };
   const ueData = ues.map((ue) => {
     const subs = subjects.filter((s) => s.ue === ue);
@@ -309,7 +513,6 @@ const SemesterBulletin = ({
         </tbody>
       </table>
 
-      {/* Rang & Mention */}
       <table className="w-full text-[11px] border-collapse mb-3">
         <tbody>
           <tr className="bg-[#e8e8e8]">
@@ -328,7 +531,6 @@ const SemesterBulletin = ({
         </tbody>
       </table>
 
-      {/* Validation des crédits */}
       <table className="w-full text-[11px] border-collapse mb-3">
         <thead>
           <tr className="bg-[#d6e4f0]">
@@ -379,7 +581,6 @@ const SemesterBulletin = ({
         </tbody>
       </table>
 
-      {/* Décision */}
       <p className="text-[12px] mt-3">
         <strong>Décision du Jury : </strong>
         <strong className="underline">
@@ -483,15 +684,9 @@ const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) =
         </thead>
         <tbody>
           <tr>
-            <td className="border border-black px-2 py-1.5 text-center font-semibold">
-              {credS5} / 30
-            </td>
-            <td className="border border-black px-2 py-1.5 text-center font-semibold">
-              {credS6} / 30
-            </td>
-            <td className="border border-black px-2 py-1.5 text-center font-bold">
-              {credits} / 60
-            </td>
+            <td className="border border-black px-2 py-1.5 text-center font-semibold">{credS5} / 30</td>
+            <td className="border border-black px-2 py-1.5 text-center font-semibold">{credS6} / 30</td>
+            <td className="border border-black px-2 py-1.5 text-center font-bold">{credits} / 60</td>
           </tr>
         </tbody>
       </table>
