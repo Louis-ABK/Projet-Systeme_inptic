@@ -45,39 +45,20 @@ const classAverages = {
   annuel: STUDENTS.reduce((a, s) => a + s.moyenneGenerale, 0) / STUDENTS.length,
 };
 
-type IdentityFields = {
-  dateNaissance: string;
-  lieuNaissance: string;
-  bac: string;
-  etablissement: string;
+// Stats min / max / écart-type (§5.5 du cahier des charges)
+const computePromoStats = (values: number[]) => {
+  const n = values.length || 1;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+  const std = Math.sqrt(variance);
+  return { min, max, mean, std };
 };
-
-const IDENTITY_KEY = "inptic_identity_v1";
-
-const loadIdentity = (matricule: string): IdentityFields => {
-  try {
-    const all = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "{}");
-    return (
-      all[matricule] || {
-        dateNaissance: "",
-        lieuNaissance: "",
-        bac: "",
-        etablissement: "",
-      }
-    );
-  } catch {
-    return { dateNaissance: "", lieuNaissance: "", bac: "", etablissement: "" };
-  }
-};
-
-const saveIdentity = (matricule: string, data: IdentityFields) => {
-  try {
-    const all = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "{}");
-    all[matricule] = data;
-    localStorage.setItem(IDENTITY_KEY, JSON.stringify(all));
-  } catch {
-    // ignore
-  }
+const promoStats = {
+  s5: computePromoStats(STUDENTS.map((s) => s.s5.moyenne)),
+  s6: computePromoStats(STUDENTS.map((s) => s.s6.moyenne)),
+  annuel: computePromoStats(STUDENTS.map((s) => s.moyenneGenerale)),
 };
 
 export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
@@ -88,22 +69,9 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
   });
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const [identity, setIdentity] = useState<IdentityFields>(() =>
-    student ? loadIdentity(student.matricule) : { dateNaissance: "", lieuNaissance: "", bac: "", etablissement: "" }
-  );
-  const [editIdentity, setEditIdentity] = useState(false);
 
-  // Reset identity quand l'étudiant change
-  useMemo(() => {
-    if (student) setIdentity(loadIdentity(student.matricule));
-  }, [student?.matricule]);
-
-  const updateIdentity = (field: keyof IdentityFields, value: string) => {
-    if (!student) return;
-    const next = { ...identity, [field]: value };
-    setIdentity(next);
-    saveIdentity(student.matricule, next);
-  };
+  // Identité lue depuis le store partagé (alimenté par l'écran Saisie des notes)
+  const identity = student ? loadIdentity(student.matricule) : {};
 
   const rank = useMemo(() => {
     if (!student) return 0;
