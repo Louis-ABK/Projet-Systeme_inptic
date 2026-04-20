@@ -1,11 +1,6 @@
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import {
-  STUDENTS,
-  Student,
-  S5_SUBJECTS,
-  S6_SUBJECTS,
-} from "@/data/students";
+import { S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,22 +12,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save, RotateCcw, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Save, RotateCcw, AlertCircle, CheckCircle2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 type Sem = "s5" | "s6";
 
-// Validation : note 0-20, absence >= 0
-const noteSchema = z.number().min(0, "Min 0").max(20, "Max 20");
-const absenceSchema = z.number().min(0, "Min 0").max(200, "Max 200h");
+const noteSchema = z.number().min(0, "0-20").max(20, "0-20");
+const absenceSchema = z.number().min(0).max(500);
 
 interface SubjectEntry {
   cc: string;
   exam: string;
+  rattrapage: string;
 }
 
-const STORAGE_KEY = "inptic_grade_entries_v1";
+interface IdentityForm {
+  matricule: string;
+  nom: string;
+  prenom: string;
+  dateNaissance: string;
+  lieuNaissance: string;
+  bac: string;
+  etablissement: string;
+}
+
+const STORAGE_KEY = "inptic_grade_entries_v2";
 
 const loadEntries = (): Record<string, any> => {
   try {
@@ -41,76 +46,79 @@ const loadEntries = (): Record<string, any> => {
     return {};
   }
 };
-
-const saveEntries = (data: Record<string, any>) => {
+const saveEntries = (data: Record<string, any>) =>
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-};
 
 const buildEmpty = (subjects: readonly any[]): Record<string, SubjectEntry> => {
   const o: Record<string, SubjectEntry> = {};
-  subjects.forEach((s) => {
-    o[s.key] = { cc: "", exam: "" };
-  });
+  subjects.forEach((s) => (o[s.key] = { cc: "", exam: "", rattrapage: "" }));
   return o;
+};
+
+const emptyIdentity: IdentityForm = {
+  matricule: "",
+  nom: "",
+  prenom: "",
+  dateNaissance: "",
+  lieuNaissance: "",
+  bac: "",
+  etablissement: "",
 };
 
 export const GradeEntry = () => {
   const { toast } = useToast();
-  const [studentId, setStudentId] = useState<string>(STUDENTS[0].matricule);
+  const [identity, setIdentity] = useState<IdentityForm>(emptyIdentity);
   const [sem, setSem] = useState<Sem>("s5");
-  const [absence, setAbsence] = useState<string>("0");
+  const [absence, setAbsence] = useState("0");
   const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
-
-  // entrées : par étudiant > par semestre > par matière
   const [entries, setEntries] = useState<Record<string, any>>(() => loadEntries());
 
-  const student = useMemo(
-    () => STUDENTS.find((s) => s.matricule === studentId)!,
-    [studentId]
-  );
-
-  const key = `${studentId}_${sem}`;
+  const sessionKey = identity.matricule
+    ? `${identity.matricule}_${sem}`
+    : `__draft__${sem}`;
   const current: Record<string, SubjectEntry> =
-    entries[key]?.notes || buildEmpty(subjects);
-  const currentAbs: string = entries[key]?.absence ?? "0";
+    entries[sessionKey]?.notes || buildEmpty(subjects);
 
-  // Synchronise quand on change étudiant/semestre
-  if (entries[key]?.absence !== undefined && currentAbs !== absence && absence === "0") {
-    // ne rien faire — on laisse l'utilisateur contrôler
-  }
-
-  const setNote = (subjectKey: string, field: "cc" | "exam", value: string) => {
-    const updated = {
-      ...entries,
-      [key]: {
-        notes: { ...current, [subjectKey]: { ...current[subjectKey], [field]: value } },
-        absence: entries[key]?.absence ?? absence,
-      },
-    };
-    setEntries(updated);
-  };
-
-  const updateAbsence = (value: string) => {
-    setAbsence(value);
+  const setNote = (
+    subjectKey: string,
+    field: "cc" | "exam" | "rattrapage",
+    value: string
+  ) => {
     setEntries({
       ...entries,
-      [key]: {
-        notes: current,
-        absence: value,
+      [sessionKey]: {
+        identity,
+        absence,
+        notes: {
+          ...current,
+          [subjectKey]: { ...current[subjectKey], [field]: value },
+        },
       },
     });
   };
 
-  // Calcul moyenne par matière : CC*0.4 + Exam*0.6
+  const updateAbsence = (v: string) => {
+    setAbsence(v);
+    setEntries({ ...entries, [sessionKey]: { identity, absence: v, notes: current } });
+  };
+
+  // Logique : si rattrapage saisi → moyenne = max(originale, note rattrapage)
+  // Originale = CC*0.4 + Exam*0.6
   const moyMatiere = (e: SubjectEntry): number | null => {
     const cc = parseFloat(e.cc.replace(",", "."));
     const ex = parseFloat(e.exam.replace(",", "."));
-    if (isNaN(cc) && isNaN(ex)) return null;
-    if (isNaN(cc) || isNaN(ex)) return null;
-    return cc * 0.4 + ex * 0.6;
+    const rat = parseFloat(e.rattrapage.replace(",", "."));
+    const hasRat = !isNaN(rat);
+    if (isNaN(cc) || isNaN(ex)) {
+      // Si seul le rattrapage est saisi, on l'utilise comme note finale
+      if (hasRat) return rat;
+      return null;
+    }
+    const originale = cc * 0.4 + ex * 0.6;
+    if (hasRat) return Math.max(originale, rat);
+    return originale;
   };
 
-  // Validation par champ
   const validateNote = (val: string): string | null => {
     if (val.trim() === "") return null;
     const n = parseFloat(val.replace(",", "."));
@@ -118,13 +126,18 @@ export const GradeEntry = () => {
     return r.success ? null : r.error.issues[0].message;
   };
 
-  // Erreurs en direct
   const errors = useMemo(() => {
-    const e: Record<string, { cc?: string; exam?: string }> = {};
+    const e: Record<string, { cc?: string; exam?: string; rattrapage?: string }> = {};
     Object.entries(current).forEach(([k, v]) => {
       const cc = validateNote(v.cc);
       const ex = validateNote(v.exam);
-      if (cc || ex) e[k] = { cc: cc || undefined, exam: ex || undefined };
+      const rat = validateNote(v.rattrapage);
+      if (cc || ex || rat)
+        e[k] = {
+          cc: cc || undefined,
+          exam: ex || undefined,
+          rattrapage: rat || undefined,
+        };
     });
     return e;
   }, [current]);
@@ -133,10 +146,9 @@ export const GradeEntry = () => {
     if (absence.trim() === "") return null;
     const n = parseFloat(absence.replace(",", "."));
     const r = absenceSchema.safeParse(n);
-    return r.success ? null : r.error.issues[0].message;
+    return r.success ? null : "0-500h";
   }, [absence]);
 
-  // Moyennes UE & semestre (avec malus 0.01/h)
   const computed = useMemo(() => {
     const ues = Array.from(new Set(subjects.map((s) => s.ue)));
     const ueResults = ues.map((ue) => {
@@ -152,9 +164,8 @@ export const GradeEntry = () => {
           coef += s.coef;
         }
       });
-      return { ue, moy: coef ? sum / coef : null, complete, totalCoef: subs.reduce((a, b) => a + b.coef, 0) };
+      return { ue, moy: coef ? sum / coef : null, complete };
     });
-    const totalCoef = subjects.reduce((a, b) => a + b.coef, 0);
     let sum = 0,
       coef = 0,
       allComplete = true;
@@ -170,59 +181,139 @@ export const GradeEntry = () => {
     const absH = parseFloat(absence.replace(",", ".")) || 0;
     const malus = absH * 0.01;
     const finale = brute === null ? null : Math.max(0, brute - malus);
-    return { ueResults, brute, malus, finale, totalCoef, allComplete };
+    return { ueResults, brute, malus, finale, allComplete };
   }, [current, absence, subjects]);
+
+  const identityComplete =
+    identity.matricule.trim() !== "" &&
+    identity.nom.trim() !== "" &&
+    identity.prenom.trim() !== "";
 
   const hasErrors = Object.keys(errors).length > 0 || !!absenceError;
 
   const handleSave = () => {
-    if (hasErrors) {
+    if (!identityComplete) {
       toast({
-        title: "Erreurs de saisie",
-        description: "Corrigez les notes invalides avant d'enregistrer.",
+        title: "Identité incomplète",
+        description: "Renseignez au minimum matricule, nom et prénom.",
         variant: "destructive",
       });
       return;
     }
-    saveEntries(entries);
+    if (hasErrors) {
+      toast({
+        title: "Erreurs de saisie",
+        description: "Corrigez les notes invalides (0–20).",
+        variant: "destructive",
+      });
+      return;
+    }
+    const data = { ...entries, [sessionKey]: { identity, absence, notes: current } };
+    setEntries(data);
+    saveEntries(data);
     toast({
       title: "Notes enregistrées",
-      description: `${student.nom} ${student.prenom} — Semestre ${sem === "s5" ? "5" : "6"}`,
+      description: `${identity.nom} ${identity.prenom} — Semestre ${sem === "s5" ? "5" : "6"}`,
     });
   };
 
   const handleReset = () => {
     const updated = { ...entries };
-    delete updated[key];
+    delete updated[sessionKey];
     setEntries(updated);
     saveEntries(updated);
     setAbsence("0");
-    toast({ title: "Saisie réinitialisée", description: "Les notes ont été effacées." });
+    toast({ title: "Saisie réinitialisée" });
+  };
+
+  const handleNewStudent = () => {
+    setIdentity(emptyIdentity);
+    setAbsence("0");
+    toast({ title: "Nouvelle saisie", description: "Formulaire vidé." });
   };
 
   return (
     <div className="space-y-4">
-      {/* Sélecteurs */}
+      {/* Identité étudiant — champs libres */}
       <Card className="p-4 shadow-card-soft border-border/60">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-primary">Identité de l'étudiant</h3>
+          <Button variant="outline" size="sm" onClick={handleNewStudent}>
+            <UserPlus className="h-4 w-4 mr-1.5" /> Nouvel étudiant
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">
-              Étudiant
-            </Label>
-            <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-80">
-                {STUDENTS.map((s) => (
-                  <SelectItem key={s.matricule} value={s.matricule}>
-                    <span className="font-mono text-xs text-primary mr-2">{s.matricule}</span>
-                    {s.nom} {s.prenom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Matricule *</Label>
+            <Input
+              placeholder="Ex. 2026GI025"
+              value={identity.matricule}
+              onChange={(e) =>
+                setIdentity({ ...identity, matricule: e.target.value.toUpperCase() })
+              }
+              className="h-10 font-mono"
+            />
           </div>
+          <div>
+            <Label className="text-xs">Nom *</Label>
+            <Input
+              placeholder="NOM"
+              value={identity.nom}
+              onChange={(e) => setIdentity({ ...identity, nom: e.target.value })}
+              className="h-10"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Prénom *</Label>
+            <Input
+              placeholder="Prénom"
+              value={identity.prenom}
+              onChange={(e) => setIdentity({ ...identity, prenom: e.target.value })}
+              className="h-10"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Date de naissance</Label>
+            <Input
+              type="date"
+              value={identity.dateNaissance}
+              onChange={(e) => setIdentity({ ...identity, dateNaissance: e.target.value })}
+              className="h-10"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Lieu de naissance</Label>
+            <Input
+              placeholder="Ex. Libreville"
+              value={identity.lieuNaissance}
+              onChange={(e) => setIdentity({ ...identity, lieuNaissance: e.target.value })}
+              className="h-10"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Type de baccalauréat</Label>
+            <Input
+              placeholder="Ex. Bac C / D / Tech"
+              value={identity.bac}
+              onChange={(e) => setIdentity({ ...identity, bac: e.target.value })}
+              className="h-10"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Établissement d'origine</Label>
+            <Input
+              placeholder="Ex. Lycée National Léon MBA"
+              value={identity.etablissement}
+              onChange={(e) => setIdentity({ ...identity, etablissement: e.target.value })}
+              className="h-10"
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Sélecteurs semestre / absence */}
+      <Card className="p-4 shadow-card-soft border-border/60">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">
               Semestre
@@ -244,7 +335,7 @@ export const GradeEntry = () => {
             <Input
               type="number"
               min={0}
-              max={200}
+              max={500}
               step={1}
               value={absence}
               onChange={(e) => updateAbsence(e.target.value)}
@@ -262,15 +353,14 @@ export const GradeEntry = () => {
         <div className="px-4 py-3 bg-gradient-header text-primary-foreground flex items-center justify-between">
           <div>
             <h3 className="font-semibold">
-              Saisie des notes — {student.nom} {student.prenom}
+              Saisie des notes — {identity.nom || "—"} {identity.prenom}
             </h3>
             <p className="text-xs opacity-90">
-              Pondération : Contrôle Continu <strong>40%</strong> · Examen Final{" "}
-              <strong>60%</strong>
+              CC <strong>40%</strong> · Examen <strong>60%</strong> · Rattrapage : remplace si supérieur
             </p>
           </div>
           <div className="text-right text-xs opacity-90">
-            <p className="font-mono">{student.matricule}</p>
+            <p className="font-mono">{identity.matricule || "—"}</p>
             <p>Semestre {sem === "s5" ? "5" : "6"}</p>
           </div>
         </div>
@@ -279,11 +369,12 @@ export const GradeEntry = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted border-b border-border">
-                <th className="text-left px-3 py-2 font-semibold w-[35%]">Matière</th>
-                <th className="text-center px-2 py-2 font-semibold w-14">UE</th>
-                <th className="text-center px-2 py-2 font-semibold w-14">Coef</th>
+                <th className="text-left px-3 py-2 font-semibold w-[30%]">Matière</th>
+                <th className="text-center px-2 py-2 font-semibold w-12">UE</th>
+                <th className="text-center px-2 py-2 font-semibold w-12">Coef</th>
                 <th className="text-center px-2 py-2 font-semibold">CC (40%)</th>
                 <th className="text-center px-2 py-2 font-semibold">Examen (60%)</th>
+                <th className="text-center px-2 py-2 font-semibold">Rattrapage</th>
                 <th className="text-center px-2 py-2 font-semibold">Moyenne</th>
               </tr>
             </thead>
@@ -292,6 +383,7 @@ export const GradeEntry = () => {
                 const e = current[s.key];
                 const m = moyMatiere(e);
                 const err = errors[s.key];
+                const hasRat = e.rattrapage.trim() !== "";
                 return (
                   <tr
                     key={s.key}
@@ -319,9 +411,6 @@ export const GradeEntry = () => {
                           err?.cc && "border-destructive"
                         )}
                       />
-                      {err?.cc && (
-                        <p className="text-[10px] text-destructive mt-0.5">{err.cc}</p>
-                      )}
                     </td>
                     <td className="px-2 py-1.5">
                       <Input
@@ -337,9 +426,24 @@ export const GradeEntry = () => {
                           err?.exam && "border-destructive"
                         )}
                       />
-                      {err?.exam && (
-                        <p className="text-[10px] text-destructive mt-0.5">{err.exam}</p>
-                      )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={20}
+                        step={0.01}
+                        placeholder="—"
+                        value={e.rattrapage}
+                        onChange={(ev) =>
+                          setNote(s.key, "rattrapage", ev.target.value)
+                        }
+                        className={cn(
+                          "h-9 text-center tabular-nums",
+                          hasRat && "border-warning bg-warning/10",
+                          err?.rattrapage && "border-destructive"
+                        )}
+                      />
                     </td>
                     <td className="text-center px-2 py-2">
                       {m === null ? (
@@ -354,6 +458,7 @@ export const GradeEntry = () => {
                               ? "bg-success/10 text-success"
                               : "bg-muted text-foreground"
                           )}
+                          title={hasRat ? "Note retenue (max CC/Ex et rattrapage)" : ""}
                         >
                           {m.toFixed(2)}
                         </span>
@@ -369,7 +474,7 @@ export const GradeEntry = () => {
                   <td colSpan={3} className="px-3 py-2 font-semibold text-right text-primary">
                     Moyenne {u.ue}
                   </td>
-                  <td colSpan={2} className="px-2 py-2 text-center text-xs text-muted-foreground">
+                  <td colSpan={3} className="px-2 py-2 text-center text-xs text-muted-foreground">
                     {u.complete ? "complète" : "saisie incomplète"}
                   </td>
                   <td className="text-center px-2 py-2">
@@ -392,7 +497,7 @@ export const GradeEntry = () => {
                 <td colSpan={3} className="px-3 py-3 font-bold uppercase text-right">
                   Moyenne brute du Semestre
                 </td>
-                <td colSpan={2} className="px-2 py-3 text-center text-xs">
+                <td colSpan={3} className="px-2 py-3 text-center text-xs">
                   Malus absence : −{computed.malus.toFixed(2)}
                 </td>
                 <td className="text-center px-2 py-3 text-lg tabular-nums font-bold">
@@ -400,7 +505,7 @@ export const GradeEntry = () => {
                 </td>
               </tr>
               <tr className="bg-primary-dark text-primary-foreground">
-                <td colSpan={5} className="px-3 py-3 font-bold uppercase text-right">
+                <td colSpan={6} className="px-3 py-3 font-bold uppercase text-right">
                   Moyenne finale Semestre {sem === "s5" ? "5" : "6"} (après malus)
                 </td>
                 <td className="text-center px-2 py-3">
@@ -429,15 +534,17 @@ export const GradeEntry = () => {
           {hasErrors ? (
             <>
               <AlertCircle className="h-4 w-4 text-destructive" />
-              <span>Corrigez les erreurs de saisie pour pouvoir enregistrer.</span>
+              <span>Corrigez les notes (0–20) avant d'enregistrer.</span>
             </>
+          ) : !identityComplete ? (
+            <span>Renseignez l'identité (matricule, nom, prénom).</span>
           ) : computed.allComplete ? (
             <>
               <CheckCircle2 className="h-4 w-4 text-success" />
               <span>Saisie complète — prête à être enregistrée.</span>
             </>
           ) : (
-            <span>Notes entre 0 et 20. Sauvegarde locale (navigateur).</span>
+            <span>Sauvegarde locale (navigateur). Les rattrapages remplacent si meilleurs.</span>
           )}
         </div>
         <div className="flex gap-2">
