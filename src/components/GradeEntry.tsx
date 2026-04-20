@@ -74,6 +74,24 @@ export const GradeEntry = () => {
   const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
   const [entries, setEntries] = useState<Record<string, any>>(() => loadEntries());
 
+  // Pré-remplit identité depuis store partagé quand le matricule existe déjà
+  useEffect(() => {
+    if (!identity.matricule) return;
+    const existing = loadIdentity(identity.matricule);
+    if (existing.nom || existing.prenom) {
+      setIdentity((cur) => ({
+        matricule: cur.matricule,
+        nom: cur.nom || existing.nom || "",
+        prenom: cur.prenom || existing.prenom || "",
+        dateNaissance: cur.dateNaissance || existing.dateNaissance || "",
+        lieuNaissance: cur.lieuNaissance || existing.lieuNaissance || "",
+        bac: cur.bac || existing.bac || "",
+        etablissement: cur.etablissement || existing.etablissement || "",
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity.matricule]);
+
   const sessionKey = identity.matricule
     ? `${identity.matricule}_${sem}`
     : `__draft__${sem}`;
