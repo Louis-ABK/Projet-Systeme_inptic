@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import {
 import { Save, RotateCcw, AlertCircle, CheckCircle2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { saveIdentity as persistIdentity, loadIdentity } from "@/lib/identity-store";
 
 type Sem = "s5" | "s6";
 
@@ -72,6 +73,24 @@ export const GradeEntry = () => {
   const [absence, setAbsence] = useState("0");
   const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
   const [entries, setEntries] = useState<Record<string, any>>(() => loadEntries());
+
+  // Pré-remplit identité depuis store partagé quand le matricule existe déjà
+  useEffect(() => {
+    if (!identity.matricule) return;
+    const existing = loadIdentity(identity.matricule);
+    if (existing.nom || existing.prenom) {
+      setIdentity((cur) => ({
+        matricule: cur.matricule,
+        nom: cur.nom || existing.nom || "",
+        prenom: cur.prenom || existing.prenom || "",
+        dateNaissance: cur.dateNaissance || existing.dateNaissance || "",
+        lieuNaissance: cur.lieuNaissance || existing.lieuNaissance || "",
+        bac: cur.bac || existing.bac || "",
+        etablissement: cur.etablissement || existing.etablissement || "",
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity.matricule]);
 
   const sessionKey = identity.matricule
     ? `${identity.matricule}_${sem}`
@@ -211,6 +230,15 @@ export const GradeEntry = () => {
     const data = { ...entries, [sessionKey]: { identity, absence, notes: current } };
     setEntries(data);
     saveEntries(data);
+    // Synchronise l'identité dans le store partagé (utilisé par les bulletins)
+    persistIdentity(identity.matricule, {
+      nom: identity.nom,
+      prenom: identity.prenom,
+      dateNaissance: identity.dateNaissance,
+      lieuNaissance: identity.lieuNaissance,
+      bac: identity.bac,
+      etablissement: identity.etablissement,
+    });
     toast({
       title: "Notes enregistrées",
       description: `${identity.nom} ${identity.prenom} — Semestre ${sem === "s5" ? "5" : "6"}`,

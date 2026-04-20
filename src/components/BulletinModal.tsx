@@ -10,19 +10,13 @@ import {
   getCreditsS6,
 } from "@/data/students";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Printer, X, Download, ChevronDown } from "lucide-react";
+import { Printer, X, Download } from "lucide-react";
 import logo from "@/assets/logo-inptic.jpg";
 import { cn } from "@/lib/utils";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { exportBulletinToPDF } from "@/lib/pdf-export";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { printElement } from "@/lib/print-bulletin";
+import { loadIdentity } from "@/lib/identity-store";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -51,39 +45,20 @@ const classAverages = {
   annuel: STUDENTS.reduce((a, s) => a + s.moyenneGenerale, 0) / STUDENTS.length,
 };
 
-type IdentityFields = {
-  dateNaissance: string;
-  lieuNaissance: string;
-  bac: string;
-  etablissement: string;
+// Stats min / max / écart-type (§5.5 du cahier des charges)
+const computePromoStats = (values: number[]) => {
+  const n = values.length || 1;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+  const std = Math.sqrt(variance);
+  return { min, max, mean, std };
 };
-
-const IDENTITY_KEY = "inptic_identity_v1";
-
-const loadIdentity = (matricule: string): IdentityFields => {
-  try {
-    const all = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "{}");
-    return (
-      all[matricule] || {
-        dateNaissance: "",
-        lieuNaissance: "",
-        bac: "",
-        etablissement: "",
-      }
-    );
-  } catch {
-    return { dateNaissance: "", lieuNaissance: "", bac: "", etablissement: "" };
-  }
-};
-
-const saveIdentity = (matricule: string, data: IdentityFields) => {
-  try {
-    const all = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "{}");
-    all[matricule] = data;
-    localStorage.setItem(IDENTITY_KEY, JSON.stringify(all));
-  } catch {
-    // ignore
-  }
+const promoStats = {
+  s5: computePromoStats(STUDENTS.map((s) => s.s5.moyenne)),
+  s6: computePromoStats(STUDENTS.map((s) => s.s6.moyenne)),
+  annuel: computePromoStats(STUDENTS.map((s) => s.moyenneGenerale)),
 };
 
 export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
@@ -94,22 +69,9 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
   });
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const [identity, setIdentity] = useState<IdentityFields>(() =>
-    student ? loadIdentity(student.matricule) : { dateNaissance: "", lieuNaissance: "", bac: "", etablissement: "" }
-  );
-  const [editIdentity, setEditIdentity] = useState(false);
 
-  // Reset identity quand l'étudiant change
-  useMemo(() => {
-    if (student) setIdentity(loadIdentity(student.matricule));
-  }, [student?.matricule]);
-
-  const updateIdentity = (field: keyof IdentityFields, value: string) => {
-    if (!student) return;
-    const next = { ...identity, [field]: value };
-    setIdentity(next);
-    saveIdentity(student.matricule, next);
-  };
+  // Identité lue depuis le store partagé (alimenté par l'écran Saisie des notes)
+  const identity = student ? loadIdentity(student.matricule) : {};
 
   const rank = useMemo(() => {
     if (!student) return 0;
@@ -124,8 +86,12 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
   if (!student) return null;
 
   const handlePrint = () => {
-    // Impression directe — le CSS @media print isole .print-area
-    window.print();
+    if (!printRef.current) return;
+    const viewLabel = view === "s5" ? "Semestre 5" : view === "s6" ? "Semestre 6" : "Annuel";
+    printElement(
+      printRef.current,
+      `Bulletin ${viewLabel} — ${student?.nom ?? ""} ${student?.prenom ?? ""}`
+    );
   };
 
   const handleExportPDF = async () => {
@@ -133,7 +99,7 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
     try {
       toast({ title: "Génération du PDF…", description: "Veuillez patienter" });
       const viewLabel = view === "s5" ? "S5" : view === "s6" ? "S6" : "Annuel";
-      const filename = `Bulletin_${viewLabel}_${student.nom}_${student.prenom}.pdf`;
+      const filename = `Bulletin_${viewLabel}_${student?.nom}_${student?.prenom}.pdf`;
       await exportBulletinToPDF(printRef.current, filename);
       toast({ title: "PDF téléchargé", description: filename });
     } catch (e) {
@@ -161,13 +127,6 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
             {titleLabel} — {student.nom} {student.prenom}
           </span>
           <div className="flex gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setEditIdentity((v) => !v)}
-            >
-              {editIdentity ? "Masquer infos" : "Compléter infos"}
-            </Button>
             <Button size="sm" variant="secondary" onClick={handlePrint}>
               <Printer className="h-3.5 w-3.5 mr-1.5" /> Imprimer
             </Button>
@@ -184,48 +143,6 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
             </Button>
           </div>
         </div>
-
-        {/* Panneau d'édition identité (hors impression) */}
-        {editIdentity && (
-          <div className="no-print bg-muted/40 border-b border-border px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Date de naissance</Label>
-              <Input
-                type="date"
-                value={identity.dateNaissance}
-                onChange={(e) => updateIdentity("dateNaissance", e.target.value)}
-                className="h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Lieu de naissance</Label>
-              <Input
-                value={identity.lieuNaissance}
-                onChange={(e) => updateIdentity("lieuNaissance", e.target.value)}
-                placeholder="Ex. Libreville"
-                className="h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Type de baccalauréat</Label>
-              <Input
-                value={identity.bac}
-                onChange={(e) => updateIdentity("bac", e.target.value)}
-                placeholder="Ex. Bac C / D / Technique…"
-                className="h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Établissement d'origine</Label>
-              <Input
-                value={identity.etablissement}
-                onChange={(e) => updateIdentity("etablissement", e.target.value)}
-                placeholder="Ex. Lycée National Léon MBA"
-                className="h-9"
-              />
-            </div>
-          </div>
-        )}
 
         {/* DOCUMENT IMPRIMABLE — A4 */}
         <div
@@ -339,6 +256,51 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
           {view === "s5" && <SemesterBulletin student={student} sem="s5" rank={rank} />}
           {view === "s6" && <SemesterBulletin student={student} sem="s6" rank={rank} />}
           {view === "annuel" && <AnnualBulletin student={student} rank={rank} />}
+
+          {/* Statistiques de la promotion (§5.5 du cahier des charges) */}
+          <table className="w-full text-[10.5px] border-collapse mt-3 mb-2">
+            <thead>
+              <tr className="bg-[#e8e8e8]">
+                <th className="border border-black px-2 py-1 font-bold" colSpan={4}>
+                  Statistiques de la promotion ({STUDENTS.length} étudiants)
+                </th>
+              </tr>
+              <tr className="bg-[#f5f5f5]">
+                <th className="border border-black px-2 py-1 font-semibold">Moyenne classe</th>
+                <th className="border border-black px-2 py-1 font-semibold">Min</th>
+                <th className="border border-black px-2 py-1 font-semibold">Max</th>
+                <th className="border border-black px-2 py-1 font-semibold">Écart-type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                {(() => {
+                  const stats =
+                    view === "s5"
+                      ? promoStats.s5
+                      : view === "s6"
+                      ? promoStats.s6
+                      : promoStats.annuel;
+                  return (
+                    <>
+                      <td className="border border-black px-2 py-1 text-center font-semibold">
+                        {stats.mean.toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="border border-black px-2 py-1 text-center">
+                        {stats.min.toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="border border-black px-2 py-1 text-center">
+                        {stats.max.toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="border border-black px-2 py-1 text-center">
+                        {stats.std.toFixed(2).replace(".", ",")}
+                      </td>
+                    </>
+                  );
+                })()}
+              </tr>
+            </tbody>
+          </table>
 
           {/* Pied de page officiel */}
           <div className="mt-6 grid grid-cols-2 gap-6">
@@ -594,7 +556,7 @@ const SemesterBulletin = ({
 };
 
 const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) => {
-  const decision = getDecision(student.moyenneGenerale, student.s5.moyenne, student.s6.moyenne);
+  const decision = getDecision(student.moyenneGenerale, student.s5.moyenne, student.s6.moyenne, student);
   const credS5 = getCreditsS5(student);
   const credS6 = getCreditsS6(student);
   const credits = credS5 + credS6;
@@ -695,9 +657,13 @@ const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) =
         <strong>Décision du Conseil d'Établissement : </strong>
         <strong className="underline">
           {decision.label}
-          {decision.type === "admis" && " — Diplôme de Licence Professionnelle ASUR délivré"}
-          {decision.type === "compensation" && " — Diplôme délivré par compensation S5/S6"}
-          {decision.type === "refuse" && " — Redoublement requis"}
+          {decision.type === "admis" &&
+            " — Diplôme de Licence Professionnelle ASUR délivré"}
+          {decision.type === "compensation" &&
+            " — Diplôme délivré par compensation entre S5 et S6"}
+          {decision.type === "reprise" &&
+            " — Reprise de la soutenance requise pour validation finale"}
+          {decision.type === "refuse" && " — Redoublement de la Licence 3"}
         </strong>
       </p>
       <p className="text-[12px] mt-1">
