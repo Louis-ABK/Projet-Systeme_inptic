@@ -86,8 +86,12 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
   if (!student) return null;
 
   const handlePrint = () => {
-    // Impression directe — le CSS @media print isole .print-area
-    window.print();
+    if (!printRef.current) return;
+    const viewLabel = view === "s5" ? "Semestre 5" : view === "s6" ? "Semestre 6" : "Annuel";
+    printElement(
+      printRef.current,
+      `Bulletin ${viewLabel} — ${student?.nom ?? ""} ${student?.prenom ?? ""}`
+    );
   };
 
   const handleExportPDF = async () => {
@@ -95,7 +99,7 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
     try {
       toast({ title: "Génération du PDF…", description: "Veuillez patienter" });
       const viewLabel = view === "s5" ? "S5" : view === "s6" ? "S6" : "Annuel";
-      const filename = `Bulletin_${viewLabel}_${student.nom}_${student.prenom}.pdf`;
+      const filename = `Bulletin_${viewLabel}_${student?.nom}_${student?.prenom}.pdf`;
       await exportBulletinToPDF(printRef.current, filename);
       toast({ title: "PDF téléchargé", description: filename });
     } catch (e) {
