@@ -123,13 +123,6 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
             {titleLabel} — {student.nom} {student.prenom}
           </span>
           <div className="flex gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setEditIdentity((v) => !v)}
-            >
-              {editIdentity ? "Masquer infos" : "Compléter infos"}
-            </Button>
             <Button size="sm" variant="secondary" onClick={handlePrint}>
               <Printer className="h-3.5 w-3.5 mr-1.5" /> Imprimer
             </Button>
@@ -146,48 +139,6 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
             </Button>
           </div>
         </div>
-
-        {/* Panneau d'édition identité (hors impression) */}
-        {editIdentity && (
-          <div className="no-print bg-muted/40 border-b border-border px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Date de naissance</Label>
-              <Input
-                type="date"
-                value={identity.dateNaissance}
-                onChange={(e) => updateIdentity("dateNaissance", e.target.value)}
-                className="h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Lieu de naissance</Label>
-              <Input
-                value={identity.lieuNaissance}
-                onChange={(e) => updateIdentity("lieuNaissance", e.target.value)}
-                placeholder="Ex. Libreville"
-                className="h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Type de baccalauréat</Label>
-              <Input
-                value={identity.bac}
-                onChange={(e) => updateIdentity("bac", e.target.value)}
-                placeholder="Ex. Bac C / D / Technique…"
-                className="h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Établissement d'origine</Label>
-              <Input
-                value={identity.etablissement}
-                onChange={(e) => updateIdentity("etablissement", e.target.value)}
-                placeholder="Ex. Lycée National Léon MBA"
-                className="h-9"
-              />
-            </div>
-          </div>
-        )}
 
         {/* DOCUMENT IMPRIMABLE — A4 */}
         <div
