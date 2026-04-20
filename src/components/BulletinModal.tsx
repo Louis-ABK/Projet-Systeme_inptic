@@ -257,6 +257,51 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
           {view === "s6" && <SemesterBulletin student={student} sem="s6" rank={rank} />}
           {view === "annuel" && <AnnualBulletin student={student} rank={rank} />}
 
+          {/* Statistiques de la promotion (§5.5 du cahier des charges) */}
+          <table className="w-full text-[10.5px] border-collapse mt-3 mb-2">
+            <thead>
+              <tr className="bg-[#e8e8e8]">
+                <th className="border border-black px-2 py-1 font-bold" colSpan={4}>
+                  Statistiques de la promotion ({STUDENTS.length} étudiants)
+                </th>
+              </tr>
+              <tr className="bg-[#f5f5f5]">
+                <th className="border border-black px-2 py-1 font-semibold">Moyenne classe</th>
+                <th className="border border-black px-2 py-1 font-semibold">Min</th>
+                <th className="border border-black px-2 py-1 font-semibold">Max</th>
+                <th className="border border-black px-2 py-1 font-semibold">Écart-type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                {(() => {
+                  const stats =
+                    view === "s5"
+                      ? promoStats.s5
+                      : view === "s6"
+                      ? promoStats.s6
+                      : promoStats.annuel;
+                  return (
+                    <>
+                      <td className="border border-black px-2 py-1 text-center font-semibold">
+                        {stats.mean.toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="border border-black px-2 py-1 text-center">
+                        {stats.min.toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="border border-black px-2 py-1 text-center">
+                        {stats.max.toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="border border-black px-2 py-1 text-center">
+                        {stats.std.toFixed(2).replace(".", ",")}
+                      </td>
+                    </>
+                  );
+                })()}
+              </tr>
+            </tbody>
+          </table>
+
           {/* Pied de page officiel */}
           <div className="mt-6 grid grid-cols-2 gap-6">
             <div className="text-[10px] italic leading-snug pt-4">
