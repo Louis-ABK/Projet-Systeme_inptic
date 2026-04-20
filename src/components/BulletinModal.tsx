@@ -556,7 +556,7 @@ const SemesterBulletin = ({
 };
 
 const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) => {
-  const decision = getDecision(student.moyenneGenerale, student.s5.moyenne, student.s6.moyenne);
+  const decision = getDecision(student.moyenneGenerale, student.s5.moyenne, student.s6.moyenne, student);
   const credS5 = getCreditsS5(student);
   const credS6 = getCreditsS6(student);
   const credits = credS5 + credS6;
@@ -657,9 +657,13 @@ const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) =
         <strong>Décision du Conseil d'Établissement : </strong>
         <strong className="underline">
           {decision.label}
-          {decision.type === "admis" && " — Diplôme de Licence Professionnelle ASUR délivré"}
-          {decision.type === "compensation" && " — Diplôme délivré par compensation S5/S6"}
-          {decision.type === "refuse" && " — Redoublement requis"}
+          {decision.type === "admis" &&
+            " — Diplôme de Licence Professionnelle ASUR délivré"}
+          {decision.type === "compensation" &&
+            " — Diplôme délivré par compensation entre S5 et S6"}
+          {decision.type === "reprise" &&
+            " — Reprise de la soutenance requise pour validation finale"}
+          {decision.type === "refuse" && " — Redoublement de la Licence 3"}
         </strong>
       </p>
       <p className="text-[12px] mt-1">
