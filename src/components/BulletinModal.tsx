@@ -10,19 +10,13 @@ import {
   getCreditsS6,
 } from "@/data/students";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Printer, X, Download, ChevronDown } from "lucide-react";
+import { Printer, X, Download } from "lucide-react";
 import logo from "@/assets/logo-inptic.jpg";
 import { cn } from "@/lib/utils";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { exportBulletinToPDF } from "@/lib/pdf-export";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { printElement } from "@/lib/print-bulletin";
+import { loadIdentity } from "@/lib/identity-store";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
