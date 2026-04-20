@@ -8,9 +8,6 @@ export const AppHeader = () => {
           <img src={logo} alt="Logo INPTIC" className="h-14 w-14 rounded-full object-cover" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] uppercase tracking-widest opacity-80 font-medium">
-            République Gabonaise — Union · Travail · Justice
-          </p>
           <h1 className="font-serif text-2xl md:text-3xl font-bold leading-tight">
             INPTIC Grade Manager
           </h1>
