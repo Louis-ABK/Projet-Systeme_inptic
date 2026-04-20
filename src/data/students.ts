@@ -85,10 +85,38 @@ export const getMention = (moy: number): string => {
   return 'Insuffisant';
 };
 
-export const getDecision = (moyGen: number, s5: number, s6: number): { label: string; type: 'admis' | 'compensation' | 'refuse' } => {
-  if (s5 >= 10 && s6 >= 10) return { label: 'Admis', type: 'admis' };
-  if (moyGen >= 10) return { label: 'Admis par compensation', type: 'compensation' };
-  return { label: 'Ajourné', type: 'refuse' };
+export const getDecision = (
+  moyGen: number,
+  s5: number,
+  s6: number,
+  student?: Student
+): { label: string; type: 'admis' | 'compensation' | 'reprise' | 'refuse' } => {
+  // Règles §4.7 du cahier des charges
+  if (student) {
+    const credS5 = getCreditsS5(student);
+    const credS6 = getCreditsS6(student);
+    const totalCredits = credS5 + credS6;
+    // Vérifie l'acquisition de l'UE6-2 (Soutenance)
+    const ue62Subjects = S6_SUBJECTS.filter((x) => x.ue === 'UE6-2');
+    const totalCoefUE62 = ue62Subjects.reduce((a, b) => a + b.coef, 0);
+    const moyUE62 =
+      ue62Subjects.reduce(
+        (a, b) => a + (student.s6[b.key as keyof S6Grades] as number) * b.coef,
+        0
+      ) / totalCoefUE62;
+    const ue62Acquise = moyUE62 >= 10 || s6 >= 10;
+
+    if (totalCredits >= 60 && s5 >= 10 && s6 >= 10)
+      return { label: 'Diplômé(e)', type: 'admis' };
+    if (totalCredits >= 60 && moyGen >= 10)
+      return { label: 'Admis(e) par compensation', type: 'compensation' };
+    if (!ue62Acquise && credS5 >= 30 && credS6 >= 22)
+      return { label: 'Reprise de soutenance', type: 'reprise' };
+    return { label: 'Redouble la Licence 3', type: 'refuse' };
+  }
+  if (s5 >= 10 && s6 >= 10) return { label: 'Diplômé(e)', type: 'admis' };
+  if (moyGen >= 10) return { label: 'Admis(e) par compensation', type: 'compensation' };
+  return { label: 'Redouble la Licence 3', type: 'refuse' };
 };
 
 export const getCreditsS5 = (s: Student): number => {
