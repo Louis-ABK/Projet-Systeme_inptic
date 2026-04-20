@@ -212,6 +212,15 @@ export const GradeEntry = () => {
     const data = { ...entries, [sessionKey]: { identity, absence, notes: current } };
     setEntries(data);
     saveEntries(data);
+    // Synchronise l'identité dans le store partagé (utilisé par les bulletins)
+    persistIdentity(identity.matricule, {
+      nom: identity.nom,
+      prenom: identity.prenom,
+      dateNaissance: identity.dateNaissance,
+      lieuNaissance: identity.lieuNaissance,
+      bac: identity.bac,
+      etablissement: identity.etablissement,
+    });
     toast({
       title: "Notes enregistrées",
       description: `${identity.nom} ${identity.prenom} — Semestre ${sem === "s5" ? "5" : "6"}`,
