@@ -89,14 +89,65 @@
   }
 }
 
-/* Print styles for bulletin */
+/* Print styles for bulletin — version corrigée pour rendu A4 fidèle */
 @media print {
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area {
-    position: absolute;
-    left: 0; top: 0;
-    width: 100%;
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm;
   }
+
+  /* Cache tout par défaut */
+  html, body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Affiche uniquement la zone d'impression et son contenu */
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+
+  /* Force le détachement des conteneurs Radix Dialog (overlay/portal) */
+  .print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Force toutes les couleurs/backgrounds à l'impression */
+  .print-area * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Évite les sauts de page malheureux dans les tableaux */
+  .print-area table { page-break-inside: avoid; }
+  .print-area tr { page-break-inside: avoid; }
+
   .no-print { display: none !important; }
+
+  /* Désactive le scroll-lock de Radix */
+  body[data-scroll-locked] {
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }
