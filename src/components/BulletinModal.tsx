@@ -151,33 +151,44 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
           style={{ fontFamily: "'Times New Roman', Times, serif" }}
         >
           {/* En-tête tripartite officiel */}
-          <div className="grid grid-cols-3 gap-3 items-start mb-3">
-            <div className="text-[10px] leading-snug">
+          <div className="grid grid-cols-3 gap-3 items-start mb-2">
+            <div className="text-[10px] leading-tight text-center">
               <p className="font-bold uppercase">Institut National de la Poste,</p>
               <p className="font-bold uppercase">des Technologies de l'Information</p>
               <p className="font-bold uppercase">et de la Communication</p>
-              <p className="my-1 tracking-widest">———————————</p>
+              <div className="my-1 mx-auto w-24 border-t border-black" />
               <p className="font-semibold uppercase text-[9.5px]">Direction des Études</p>
               <p className="font-semibold uppercase text-[9.5px]">et de la Pédagogie</p>
+              <div className="my-1 mx-auto w-16 border-t border-black" />
+              <p className="text-[9px] italic">B.P. 2241 — Libreville</p>
             </div>
-            <div className="flex justify-center">
-              <img src={logo} alt="INPTIC" className="h-[88px] w-[88px] object-contain" />
+            <div className="flex flex-col items-center">
+              <img src={logo} alt="INPTIC" className="h-[92px] w-[92px] object-contain" />
+              <p className="text-[9px] italic mt-1">— INPTIC —</p>
             </div>
-            <div className="text-[10px] leading-snug text-center">
+            <div className="text-[10px] leading-tight text-center">
               <p className="font-bold uppercase">République Gabonaise</p>
-              <p className="my-1 tracking-widest">———————————</p>
-              <p className="italic">Union — Travail — Justice</p>
-              <p className="my-1 tracking-widest">———————————</p>
+              <div className="my-1 mx-auto w-24 border-t border-black" />
+              <p className="italic font-semibold">Union — Travail — Justice</p>
+              <div className="my-1 mx-auto w-24 border-t border-black" />
+              <p className="font-semibold uppercase text-[9.5px]">Ministère de l'Économie</p>
+              <p className="font-semibold uppercase text-[9.5px]">Numérique</p>
             </div>
           </div>
 
+          {/* Bandeau séparateur double trait */}
+          <div className="border-t-2 border-b border-black my-2" />
+
           {/* Titre */}
-          <div className="text-center my-5">
-            <h1 className="text-[20px] font-bold underline underline-offset-4 decoration-2">
+          <div className="text-center my-4">
+            <h1 className="text-[19px] font-bold uppercase tracking-wide">
               {titleLabel}
             </h1>
-            <p className="text-[12px] mt-1.5">
-              Année universitaire : <strong>2025 / 2026</strong>
+            <div className="mx-auto mt-1 w-56 border-t border-black" />
+            <p className="text-[12px] mt-2">
+              Année universitaire : <strong>2025 — 2026</strong>
+              <span className="mx-3">·</span>
+              N° {view.toUpperCase()}-{student.matricule}
             </p>
           </div>
 
@@ -302,20 +313,40 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
             </tbody>
           </table>
 
-          {/* Pied de page officiel */}
-          <div className="mt-6 grid grid-cols-2 gap-6">
-            <div className="text-[10px] italic leading-snug pt-4">
+          {/* Pied de page officiel — signature + cachet */}
+          <div className="mt-5 grid grid-cols-2 gap-6">
+            <div className="text-[10px] italic leading-snug pt-2">
+              <p className="font-semibold not-italic mb-1">Mentions légales :</p>
               Il ne sera délivré qu'un seul et unique exemplaire de bulletin de notes.
-              L'étudiant est donc prié d'en faire plusieurs copies légalisées.
+              L'étudiant est donc prié d'en faire plusieurs copies légalisées. Ce document
+              est officiel et engage la responsabilité de la Direction des Études.
             </div>
             <div className="text-[11px] text-center">
               <p>Fait à Libreville, le {today}</p>
               <p className="mt-1 font-semibold uppercase">
                 Le Directeur des Études et de la Pédagogie
               </p>
-              <div className="h-12" />
-              <p className="font-bold">Davy Edgard MOUSSAVOU</p>
+              {/* Zone cachet circulaire */}
+              <div className="relative h-16 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-16 h-16 rounded-full border-2 border-[#1a5276] opacity-30 flex items-center justify-center">
+                    <span className="text-[7px] uppercase text-[#1a5276] font-bold leading-tight text-center">
+                      INPTIC<br />Direction<br />Études
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="font-bold border-t border-black pt-1 inline-block px-4">
+                Davy Edgard MOUSSAVOU
+              </p>
             </div>
+          </div>
+
+          {/* Bandeau de bas de page : numéro et édition */}
+          <div className="mt-4 pt-2 border-t border-black flex justify-between text-[8.5px] text-gray-700 italic">
+            <span>Document N° {view.toUpperCase()}/{student.matricule}/{new Date().getFullYear()}</span>
+            <span>INPTIC · LP RT — Option ASUR</span>
+            <span>Édité le {today}</span>
           </div>
         </div>
       </DialogContent>
