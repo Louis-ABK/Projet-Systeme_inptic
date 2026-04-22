@@ -313,20 +313,40 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
             </tbody>
           </table>
 
-          {/* Pied de page officiel */}
-          <div className="mt-6 grid grid-cols-2 gap-6">
-            <div className="text-[10px] italic leading-snug pt-4">
+          {/* Pied de page officiel — signature + cachet */}
+          <div className="mt-5 grid grid-cols-2 gap-6">
+            <div className="text-[10px] italic leading-snug pt-2">
+              <p className="font-semibold not-italic mb-1">Mentions légales :</p>
               Il ne sera délivré qu'un seul et unique exemplaire de bulletin de notes.
-              L'étudiant est donc prié d'en faire plusieurs copies légalisées.
+              L'étudiant est donc prié d'en faire plusieurs copies légalisées. Ce document
+              est officiel et engage la responsabilité de la Direction des Études.
             </div>
             <div className="text-[11px] text-center">
               <p>Fait à Libreville, le {today}</p>
               <p className="mt-1 font-semibold uppercase">
                 Le Directeur des Études et de la Pédagogie
               </p>
-              <div className="h-12" />
-              <p className="font-bold">Davy Edgard MOUSSAVOU</p>
+              {/* Zone cachet circulaire */}
+              <div className="relative h-16 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-16 h-16 rounded-full border-2 border-[#1a5276] opacity-30 flex items-center justify-center">
+                    <span className="text-[7px] uppercase text-[#1a5276] font-bold leading-tight text-center">
+                      INPTIC<br />Direction<br />Études
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="font-bold border-t border-black pt-1 inline-block px-4">
+                Davy Edgard MOUSSAVOU
+              </p>
             </div>
+          </div>
+
+          {/* Bandeau de bas de page : numéro et édition */}
+          <div className="mt-4 pt-2 border-t border-black flex justify-between text-[8.5px] text-gray-700 italic">
+            <span>Document N° {view.toUpperCase()}/{student.matricule}/{new Date().getFullYear()}</span>
+            <span>INPTIC · LP RT — Option ASUR</span>
+            <span>Édité le {today}</span>
           </div>
         </div>
       </DialogContent>
