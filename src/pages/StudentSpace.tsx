@@ -22,6 +22,17 @@ const StudentSpace = () => {
     [user]
   );
 
+  // Rang (hook appelé inconditionnellement)
+  const rank = useMemo(() => {
+    if (!student) return 0;
+    const sorted = [...STUDENTS].sort((a, b) => {
+      if (view === "s5") return b.s5.moyenne - a.s5.moyenne;
+      if (view === "s6") return b.s6.moyenne - a.s6.moyenne;
+      return b.moyenneGenerale - a.moyenneGenerale;
+    });
+    return sorted.findIndex((s) => s.matricule === student.matricule) + 1;
+  }, [student, view]);
+
   if (!student) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
@@ -42,16 +53,6 @@ const StudentSpace = () => {
   const mention = getMention(student.moyenneGenerale);
   const subjects = view === "s5" ? S5_SUBJECTS : view === "s6" ? S6_SUBJECTS : null;
   const grades = view === "s5" ? student.s5 : view === "s6" ? student.s6 : null;
-
-  // Rang
-  const rank = useMemo(() => {
-    const sorted = [...STUDENTS].sort((a, b) => {
-      if (view === "s5") return b.s5.moyenne - a.s5.moyenne;
-      if (view === "s6") return b.s6.moyenne - a.s6.moyenne;
-      return b.moyenneGenerale - a.moyenneGenerale;
-    });
-    return sorted.findIndex((s) => s.matricule === student.matricule) + 1;
-  }, [student, view]);
 
   return (
     <div className="min-h-screen bg-background">
