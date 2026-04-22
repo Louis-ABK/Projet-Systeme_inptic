@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { GradesTable } from "@/components/GradesTable";
 import { BulletinModal } from "@/components/BulletinModal";
@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, ClipboardList, Table2, Upload, RotateCcw } from "lucide-react";
 import { importStudentsFromExcel } from "@/lib/excel-import";
+import { getInitialStudents, saveStudents, clearStudents, loadStudents } from "@/lib/students-store";
 import { useToast } from "@/hooks/use-toast";
 
 type View = "s5" | "s6" | "annuel";
@@ -22,9 +23,14 @@ const Index = () => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Student | null>(null);
   const [open, setOpen] = useState(false);
-  const [students, setStudents] = useState<Student[]>(DEFAULT_STUDENTS);
-  const [imported, setImported] = useState(false);
+  const [students, setStudents] = useState<Student[]>(() => getInitialStudents());
+  const [imported, setImported] = useState<boolean>(() => loadStudents() !== null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Synchronise localStorage à chaque changement
+  useEffect(() => {
+    if (imported) saveStudents(students);
+  }, [students, imported]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -57,26 +63,34 @@ const Index = () => {
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
     try {
-      toast({ title: "Import en cours…", description: file.name });
-      const { students: imp, warnings } = await importStudentsFromExcel(file);
+      toast({
+        title: `Import en cours… (${files.length} fichier${files.length > 1 ? "s" : ""})`,
+        description: files.map((f) => f.name).join(", "),
+      });
+      const { students: imp, warnings, info } = await importStudentsFromExcel(files);
       if (imp.length === 0) {
         toast({
           title: "Import échoué",
-          description: warnings[0] || "Aucun étudiant détecté dans le fichier.",
+          description: warnings[0] || "Aucun étudiant détecté dans le(s) fichier(s).",
           variant: "destructive",
         });
       } else {
         setStudents(imp);
         setImported(true);
+        saveStudents(imp);
         toast({
           title: `${imp.length} étudiant(s) importé(s)`,
-          description: warnings.length
-            ? `${warnings.length} avertissement(s)`
-            : "Données chargées avec succès.",
+          description:
+            (info[0] ? info.join(" · ") + " · " : "") +
+            (warnings.length ? `${warnings.length} avertissement(s)` : "Tableau de bord mis à jour."),
         });
+        if (warnings.length) {
+          console.warn("[Import Excel] Avertissements :", warnings);
+        }
       }
     } catch (err: any) {
       toast({
@@ -92,6 +106,7 @@ const Index = () => {
   const handleReset = () => {
     setStudents(DEFAULT_STUDENTS);
     setImported(false);
+    clearStudents();
     toast({ title: "Données réinitialisées", description: "Liste officielle restaurée." });
   };
 
@@ -125,6 +140,7 @@ const Index = () => {
                 ref={fileInputRef}
                 type="file"
                 accept=".xlsx,.xls"
+                multiple
                 className="hidden"
                 onChange={handleImport}
               />
@@ -132,8 +148,9 @@ const Index = () => {
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                title="Sélectionnez un ou plusieurs fichiers Excel (S5 et/ou S6)"
               >
-                <Upload className="h-4 w-4 mr-1.5" /> Importer Excel
+                <Upload className="h-4 w-4 mr-1.5" /> Importer Excel (S5 + S6)
               </Button>
               {imported && (
                 <Button variant="ghost" onClick={handleReset}>
