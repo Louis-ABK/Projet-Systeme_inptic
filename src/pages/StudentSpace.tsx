@@ -145,7 +145,7 @@ const StudentSpace = () => {
           </div>
         </Card>
 
-        {/* Notes détaillées (S5/S6) ou bilan (annuel) */}
+        {/* Notes détaillées regroupées par UE */}
         {subjects && grades ? (
           <Card className="overflow-hidden">
             <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 font-semibold">
@@ -155,29 +155,84 @@ const StudentSpace = () => {
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  <th className="text-left px-4 py-2 font-semibold">UE</th>
-                  <th className="text-left px-4 py-2 font-semibold">Matière</th>
+                  <th className="text-left px-4 py-2 font-semibold">UE / Matière</th>
                   <th className="text-center px-3 py-2 font-semibold">Crédits</th>
                   <th className="text-center px-3 py-2 font-semibold">Coef.</th>
                   <th className="text-center px-3 py-2 font-semibold">Note</th>
+                  <th className="text-center px-3 py-2 font-semibold">Validation</th>
                 </tr>
               </thead>
               <tbody>
-                {subjects.map((s, i) => (
-                  <tr key={s.key} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
-                    <td className="px-4 py-2 text-xs font-mono text-primary">{s.ue}</td>
-                    <td className="px-4 py-2">{s.label}</td>
-                    <td className="text-center px-3 py-2">{s.credits}</td>
-                    <td className="text-center px-3 py-2">{s.coef.toFixed(2).replace(".", ",")}</td>
-                    <td className="text-center px-3 py-2">
-                      <Grade value={(grades as any)[s.key]} />
-                    </td>
-                  </tr>
-                ))}
-                <tr className="bg-primary/10 font-bold">
-                  <td colSpan={4} className="px-4 py-2.5 text-right">Moyenne Semestre</td>
+                {Array.from(new Set(subjects.map((s) => s.ue))).map((ue) => {
+                  const ueSubjects = subjects.filter((s) => s.ue === ue);
+                  const totalCoef = ueSubjects.reduce((a, b) => a + b.coef, 0);
+                  const sum = ueSubjects.reduce(
+                    (a, b) => a + ((grades as any)[b.key] as number) * b.coef,
+                    0
+                  );
+                  const moyUE = sum / totalCoef;
+                  const totalCred = ueSubjects.reduce((a, b) => a + b.credits, 0);
+                  const validated = moyUE >= 10 || (grades as any).moyenne >= 10;
+                  return (
+                    <>
+                      {/* Ligne UE */}
+                      <tr key={ue} className="bg-primary/10">
+                        <td className="px-4 py-2 font-bold text-primary">
+                          {ue}
+                        </td>
+                        <td className="text-center px-3 py-2 font-bold">{totalCred}</td>
+                        <td className="text-center px-3 py-2 font-bold">{totalCoef.toFixed(2).replace(".", ",")}</td>
+                        <td className="text-center px-3 py-2">
+                          <span className={cn(
+                            "inline-block px-2 py-0.5 rounded font-bold tabular-nums",
+                            moyUE >= 10 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                          )}>
+                            {moyUE.toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="text-center px-3 py-2">
+                          <span className={cn(
+                            "inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold",
+                            validated ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+                          )}>
+                            {validated ? "Acquis" : "Non acquis"}
+                          </span>
+                        </td>
+                      </tr>
+                      {/* Lignes matières */}
+                      {ueSubjects.map((s, i) => (
+                        <tr key={s.key} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
+                          <td className="px-4 py-2 pl-8 text-muted-foreground">{s.label}</td>
+                          <td className="text-center px-3 py-2">{s.credits}</td>
+                          <td className="text-center px-3 py-2">{s.coef.toFixed(2).replace(".", ",")}</td>
+                          <td className="text-center px-3 py-2">
+                            <Grade value={(grades as any)[s.key]} />
+                          </td>
+                          <td className="text-center px-3 py-2">
+                            <span className={cn(
+                              "inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                              ((grades as any)[s.key] as number) >= 10 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+                            )}>
+                              {((grades as any)[s.key] as number) >= 10 ? "Validé" : "Non validé"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })}
+                <tr className="bg-primary/15 font-bold border-t-2 border-primary/30">
+                  <td colSpan={3} className="px-4 py-2.5 text-right">Moyenne Semestre</td>
                   <td className="text-center px-3 py-2.5">
-                    <Grade value={grades.moyenne} />
+                    <Grade value={(grades as any).moyenne} />
+                  </td>
+                  <td className="text-center px-3 py-2.5">
+                    <span className={cn(
+                      "inline-block px-2.5 py-1 rounded-full text-xs font-semibold",
+                      (grades as any).moyenne >= 10 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+                    )}>
+                      {(grades as any).moyenne >= 10 ? "Semestre validé" : "Semestre non validé"}
+                    </span>
                   </td>
                 </tr>
               </tbody>
