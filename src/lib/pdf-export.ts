@@ -2,13 +2,13 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 /**
- * Exporte un élément HTML (le bulletin) en PDF A4 haute qualité.
+ * Exporte un bulletin en PDF A4 sur UNE seule page.
+ * On adapte l'échelle pour que tout le contenu rentre sans débordement.
  */
 export const exportBulletinToPDF = async (
   element: HTMLElement,
   filename: string
 ) => {
-  // Capture l'élément en haute résolution
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
@@ -19,39 +19,33 @@ export const exportBulletinToPDF = async (
 
   const imgData = canvas.toDataURL("image/png");
 
-  // A4 format en mm
   const pdf = new jsPDF({
     orientation: "portrait",
     unit: "mm",
     format: "a4",
   });
 
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 8;
+  const pageWidth = pdf.internal.pageSize.getWidth();   // 210
+  const pageHeight = pdf.internal.pageSize.getHeight(); // 297
+  const margin = 6;
   const usableWidth = pageWidth - margin * 2;
+  const usableHeight = pageHeight - margin * 2;
 
-  // Calcul ratio
-  const imgWidth = usableWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  // Ratio basé sur la largeur
+  let imgWidth = usableWidth;
+  let imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  let heightLeft = imgHeight;
-  let position = margin;
-
-  // Si tout tient sur une page
-  if (imgHeight <= pageHeight - margin * 2) {
-    pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
-  } else {
-    // Découpage multi-pages
-    pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight - margin * 2;
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight + margin;
-      pdf.addPage();
-      pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight - margin * 2;
-    }
+  // Si trop grand en hauteur, on rescale pour tenir sur 1 page
+  if (imgHeight > usableHeight) {
+    const ratio = usableHeight / imgHeight;
+    imgHeight = usableHeight;
+    imgWidth = imgWidth * ratio;
   }
 
+  // Centrer horizontalement
+  const x = (pageWidth - imgWidth) / 2;
+  const y = margin;
+
+  pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight, undefined, "FAST");
   pdf.save(filename);
 };
