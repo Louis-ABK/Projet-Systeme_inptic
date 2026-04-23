@@ -3,7 +3,6 @@ import {
   Student,
   S5_SUBJECTS,
   S6_SUBJECTS,
-  STUDENTS,
   getDecision,
   getMention,
   getCreditsS5,
@@ -24,44 +23,26 @@ interface Props {
   view: "s5" | "s6" | "annuel";
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  students?: Student[];
 }
 
-// Pré-calcul des moyennes de classe par matière
-const classAverages = {
-  s5: Object.fromEntries(
-    S5_SUBJECTS.map((s) => [
-      s.key,
-      STUDENTS.reduce((a, st) => a + (st.s5 as any)[s.key], 0) / STUDENTS.length,
-    ])
-  ) as Record<string, number>,
-  s6: Object.fromEntries(
-    S6_SUBJECTS.map((s) => [
-      s.key,
-      STUDENTS.reduce((a, st) => a + (st.s6 as any)[s.key], 0) / STUDENTS.length,
-    ])
-  ) as Record<string, number>,
-  s5Moy: STUDENTS.reduce((a, s) => a + s.s5.moyenne, 0) / STUDENTS.length,
-  s6Moy: STUDENTS.reduce((a, s) => a + s.s6.moyenne, 0) / STUDENTS.length,
-  annuel: STUDENTS.reduce((a, s) => a + s.moyenneGenerale, 0) / STUDENTS.length,
-};
-
-// Stats min / max / écart-type (§5.5 du cahier des charges)
 const computePromoStats = (values: number[]) => {
   const n = values.length || 1;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = values.length ? Math.min(...values) : 0;
+  const max = values.length ? Math.max(...values) : 0;
   const mean = values.reduce((a, b) => a + b, 0) / n;
   const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
   const std = Math.sqrt(variance);
   return { min, max, mean, std };
 };
-const promoStats = {
-  s5: computePromoStats(STUDENTS.map((s) => s.s5.moyenne)),
-  s6: computePromoStats(STUDENTS.map((s) => s.s6.moyenne)),
-  annuel: computePromoStats(STUDENTS.map((s) => s.moyenneGenerale)),
-};
 
-export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
+export const BulletinModal = ({
+  student,
+  view,
+  open,
+  onOpenChange,
+  students = [],
+}: Props) => {
   const today = new Date().toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "long",
@@ -70,18 +51,45 @@ export const BulletinModal = ({ student, view, open, onOpenChange }: Props) => {
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Identité lue depuis le store partagé (alimenté par l'écran Saisie des notes)
   const identity = student ? loadIdentity(student.matricule) : {};
 
+  const classData = useMemo(() => {
+    const list = students.length ? students : student ? [student] : [];
+    const safe = (n: number) => (list.length ? n : 0);
+    return {
+      s5: Object.fromEntries(
+        S5_SUBJECTS.map((s) => [
+          s.key,
+          safe(list.reduce((a, st) => a + (st.s5 as any)[s.key], 0) / (list.length || 1)),
+        ])
+      ) as Record<string, number>,
+      s6: Object.fromEntries(
+        S6_SUBJECTS.map((s) => [
+          s.key,
+          safe(list.reduce((a, st) => a + (st.s6 as any)[s.key], 0) / (list.length || 1)),
+        ])
+      ) as Record<string, number>,
+      s5Moy: safe(list.reduce((a, s) => a + s.s5.moyenne, 0) / (list.length || 1)),
+      s6Moy: safe(list.reduce((a, s) => a + s.s6.moyenne, 0) / (list.length || 1)),
+      annuel: safe(list.reduce((a, s) => a + s.moyenneGenerale, 0) / (list.length || 1)),
+      total: list.length,
+      stats: {
+        s5: computePromoStats(list.map((s) => s.s5.moyenne)),
+        s6: computePromoStats(list.map((s) => s.s6.moyenne)),
+        annuel: computePromoStats(list.map((s) => s.moyenneGenerale)),
+      },
+    };
+  }, [students, student]);
+
   const rank = useMemo(() => {
-    if (!student) return 0;
-    const sorted = [...STUDENTS].sort((a, b) => {
+    if (!student || !students.length) return 0;
+    const sorted = [...students].sort((a, b) => {
       if (view === "s5") return b.s5.moyenne - a.s5.moyenne;
       if (view === "s6") return b.s6.moyenne - a.s6.moyenne;
       return b.moyenneGenerale - a.moyenneGenerale;
     });
     return sorted.findIndex((s) => s.matricule === student.matricule) + 1;
-  }, [student, view]);
+  }, [student, view, students]);
 
   if (!student) return null;
 
