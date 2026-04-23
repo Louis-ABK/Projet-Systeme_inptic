@@ -82,8 +82,8 @@ export const fetchStudents = async (): Promise<Student[]> => {
     const notes = evalByStudent.get(e.id);
     if (notes) {
       notes.forEach(({ note }, code) => {
-        if (s5Codes.has(code)) s5[code] = note;
-        else if (s6Codes.has(code)) s6[code] = note;
+        if (s5Codes.has(code as any)) s5[code] = note;
+        else if (s6Codes.has(code as any)) s6[code] = note;
       });
     }
     s5.moyenne = computeMoy(s5, S5_SUBJECTS as any);
