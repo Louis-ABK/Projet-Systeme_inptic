@@ -106,15 +106,18 @@ export const getDecision = (
       ) / totalCoefUE62;
     const ue62Acquise = moyUE62 >= 10 || s6 >= 10;
 
-    if (totalCredits >= 60 && s5 >= 10 && s6 >= 10)
+    // Admis direct : moyenne annuelle ≥ 10 ET les deux semestres ≥ 10
+    if (moyGen >= 10 && s5 >= 10 && s6 >= 10)
       return { label: 'Diplômé(e)', type: 'admis' };
-    if (totalCredits >= 60 && moyGen >= 10)
+    // Admis par compensation : moyenne annuelle ≥ 10 même si un semestre < 10
+    if (moyGen >= 10)
       return { label: 'Admis(e) par compensation', type: 'compensation' };
+    // Reprise de soutenance : UE6-2 non acquise mais le reste OK
     if (!ue62Acquise && credS5 >= 30 && credS6 >= 22)
       return { label: 'Reprise de soutenance', type: 'reprise' };
     return { label: 'Redouble la Licence 3', type: 'refuse' };
   }
-  if (s5 >= 10 && s6 >= 10) return { label: 'Diplômé(e)', type: 'admis' };
+  if (moyGen >= 10 && s5 >= 10 && s6 >= 10) return { label: 'Diplômé(e)', type: 'admis' };
   if (moyGen >= 10) return { label: 'Admis(e) par compensation', type: 'compensation' };
   return { label: 'Redouble la Licence 3', type: 'refuse' };
 };
