@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ADMIN_INFO, studentEmail } from "@/lib/auth-store";
-import { STUDENTS } from "@/data/students";
-import { GraduationCap, Shield, LogIn, Info } from "lucide-react";
+import { ADMIN_INFO } from "@/lib/auth-store";
+import { GraduationCap, Shield, LogIn, Info, Loader2 } from "lucide-react";
 import logo from "@/assets/logo-inptic.jpg";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 const Login = () => {
-  const { user, login } = useAuth();
+  const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -22,20 +23,33 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Bootstrap admin au premier chargement (idempotent)
+  useEffect(() => {
+    supabase.functions.invoke("bootstrap-admin").catch(() => {});
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (user) {
     const dest = user.role === "admin" ? "/admin" : "/etudiant";
     return <Navigate to={dest} replace />;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const u = login(email, password);
+    const { user: u, error } = await login(email, password);
     setLoading(false);
     if (!u) {
       toast({
         title: "Connexion refusée",
-        description: "Email ou mot de passe invalide.",
+        description: error || "Email ou mot de passe invalide.",
         variant: "destructive",
       });
       return;
@@ -48,9 +62,6 @@ const Login = () => {
     const from = (location.state as any)?.from?.pathname;
     navigate(from || (u.role === "admin" ? "/admin" : "/etudiant"), { replace: true });
   };
-
-  const exampleStudent = STUDENTS[0];
-  const exampleEmail = studentEmail(exampleStudent);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex items-center justify-center px-4 py-8">
@@ -88,7 +99,7 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder={tab === "admin" ? ADMIN_INFO.email : exampleEmail}
+                  placeholder={tab === "admin" ? ADMIN_INFO.email : "prenom.nom@inptic.ga"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
@@ -113,7 +124,11 @@ const Login = () => {
                 disabled={loading}
                 className="w-full h-11 bg-primary hover:bg-primary-dark font-semibold"
               >
-                <LogIn className="h-4 w-4 mr-1.5" />
+                {loading ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <LogIn className="h-4 w-4 mr-1.5" />
+                )}
                 Se connecter
               </Button>
             </form>
@@ -130,8 +145,7 @@ const Login = () => {
                       Mot de passe par défaut : <span className="font-mono">votre matricule</span>
                     </p>
                     <p className="mt-2 text-[11px]">
-                      Ex : <span className="font-mono">{exampleEmail}</span> /{" "}
-                      <span className="font-mono">{exampleStudent.matricule}</span>
+                      Les comptes sont créés automatiquement après l'import du fichier Excel par l'administration.
                     </p>
                   </div>
                 </div>

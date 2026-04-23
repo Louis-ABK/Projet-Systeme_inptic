@@ -1,17 +1,18 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { GradesTable } from "@/components/GradesTable";
 import { BulletinModal } from "@/components/BulletinModal";
 import { GradeEntry } from "@/components/GradeEntry";
-import { STUDENTS as DEFAULT_STUDENTS, Student } from "@/data/students";
+import { Student } from "@/data/students";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, ClipboardList, Table2, Upload, RotateCcw } from "lucide-react";
+import { Search, ClipboardList, Table2, Upload, RotateCcw, Loader2 } from "lucide-react";
 import { importStudentsFromExcel } from "@/lib/excel-import";
-import { getInitialStudents, saveStudents, clearStudents, loadStudents } from "@/lib/students-store";
+import { useStudents } from "@/hooks/use-students";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 type View = "s5" | "s6" | "annuel";
 type Mode = "consult" | "entry";
@@ -23,14 +24,10 @@ const Index = () => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Student | null>(null);
   const [open, setOpen] = useState(false);
-  const [students, setStudents] = useState<Student[]>(() => getInitialStudents());
-  const [imported, setImported] = useState<boolean>(() => loadStudents() !== null);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Synchronise localStorage à chaque changement
-  useEffect(() => {
-    if (imported) saveStudents(students);
-  }, [students, imported]);
+  const { students, loading, reload } = useStudents();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -66,32 +63,62 @@ const Index = () => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
+    setImporting(true);
     try {
       toast({
-        title: `Import en cours… (${files.length} fichier${files.length > 1 ? "s" : ""})`,
+        title: `Lecture des fichiers… (${files.length})`,
         description: files.map((f) => f.name).join(", "),
       });
-      const { students: imp, warnings, info } = await importStudentsFromExcel(files);
-      if (imp.length === 0) {
+      const { students: parsed, warnings, info } = await importStudentsFromExcel(files);
+      if (parsed.length === 0) {
         toast({
-          title: "Import échoué",
-          description: warnings[0] || "Aucun étudiant détecté dans le(s) fichier(s).",
+          title: "Aucune donnée détectée",
+          description: warnings[0] || "Vérifiez vos fichiers.",
           variant: "destructive",
         });
-      } else {
-        setStudents(imp);
-        setImported(true);
-        saveStudents(imp);
-        toast({
-          title: `${imp.length} étudiant(s) importé(s)`,
-          description:
-            (info[0] ? info.join(" · ") + " · " : "") +
-            (warnings.length ? `${warnings.length} avertissement(s)` : "Tableau de bord mis à jour."),
-        });
-        if (warnings.length) {
-          console.warn("[Import Excel] Avertissements :", warnings);
-        }
+        return;
       }
+
+      // Conversion : s5/s6 → { code: note }
+      const payload = {
+        students: parsed.map((s) => ({
+          matricule: s.matricule,
+          nom: s.nom,
+          prenom: s.prenom,
+          s5: Object.fromEntries(
+            Object.entries(s.s5).filter(([k, v]) => k !== "moyenne" && v > 0)
+          ),
+          s6: Object.fromEntries(
+            Object.entries(s.s6).filter(([k, v]) => k !== "moyenne" && v > 0)
+          ),
+        })),
+      };
+
+      toast({
+        title: "Envoi vers le serveur…",
+        description: `${parsed.length} étudiant(s) à enregistrer.`,
+      });
+
+      const { data, error } = await supabase.functions.invoke("import-students", {
+        body: payload,
+      });
+
+      if (error) throw new Error(error.message);
+
+      await reload();
+
+      toast({
+        title: `Import réussi : ${parsed.length} étudiant(s)`,
+        description: [
+          data?.createdAccounts ? `${data.createdAccounts} compte(s) créé(s)` : null,
+          data?.createdStudents ? `${data.createdStudents} nouveau(x)` : null,
+          data?.createdEvaluations ? `${data.createdEvaluations} note(s) enregistrée(s)` : null,
+          data?.totalErrors ? `${data.totalErrors} erreur(s)` : null,
+        ].filter(Boolean).join(" · ") || "Tableau de bord mis à jour.",
+      });
+      if (info.length) console.log("[Import]", info);
+      if (warnings.length) console.warn("[Import] Avertissements :", warnings);
+      if (data?.errors?.length) console.warn("[Import] Erreurs serveur :", data.errors);
     } catch (err: any) {
       toast({
         title: "Erreur d'import",
@@ -99,15 +126,9 @@ const Index = () => {
         variant: "destructive",
       });
     } finally {
+      setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  };
-
-  const handleReset = () => {
-    setStudents(DEFAULT_STUDENTS);
-    setImported(false);
-    clearStudents();
-    toast({ title: "Données réinitialisées", description: "Liste officielle restaurée." });
   };
 
   return (
@@ -143,20 +164,25 @@ const Index = () => {
                 multiple
                 className="hidden"
                 onChange={handleImport}
+                disabled={importing}
               />
               <Button
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                 title="Sélectionnez un ou plusieurs fichiers Excel (S5 et/ou S6)"
               >
-                <Upload className="h-4 w-4 mr-1.5" /> Importer Excel (S5 + S6)
+                {importing ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-1.5" />
+                )}
+                Importer Excel (S5 + S6)
               </Button>
-              {imported && (
-                <Button variant="ghost" onClick={handleReset}>
-                  <RotateCcw className="h-4 w-4 mr-1.5" /> Liste officielle
-                </Button>
-              )}
+              <Button variant="ghost" onClick={() => reload()} disabled={loading || importing}>
+                <RotateCcw className="h-4 w-4 mr-1.5" /> Actualiser
+              </Button>
             </div>
           )}
         </div>
@@ -189,11 +215,6 @@ const Index = () => {
                   <span className="text-muted-foreground">Ajournés :</span>{" "}
                   <strong className="text-destructive">{stats.refuses}</strong>
                 </div>
-                {imported && (
-                  <div className="ml-auto text-xs px-2 py-1 rounded bg-warning/15 text-warning border border-warning/40">
-                    Données importées (Excel)
-                  </div>
-                )}
               </div>
             </Card>
 
@@ -252,7 +273,28 @@ const Index = () => {
               </div>
             </Card>
 
-            <GradesTable students={filtered} view={view} onShowBulletin={showBulletin} />
+            {loading ? (
+              <Card className="p-12 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Chargement des données…</p>
+              </Card>
+            ) : students.length === 0 ? (
+              <Card className="p-12 text-center">
+                <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="font-semibold text-lg mb-1">Aucun étudiant enregistré</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Importez un fichier Excel S5 et/ou S6 pour commencer.
+                </p>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-primary hover:bg-primary-dark"
+                >
+                  <Upload className="h-4 w-4 mr-1.5" /> Importer un fichier Excel
+                </Button>
+              </Card>
+            ) : (
+              <GradesTable students={filtered} view={view} onShowBulletin={showBulletin} />
+            )}
           </>
         )}
 
@@ -261,7 +303,7 @@ const Index = () => {
         </p>
       </main>
 
-      <BulletinModal student={selected} view={view} open={open} onOpenChange={setOpen} />
+      <BulletinModal student={selected} view={view} open={open} onOpenChange={setOpen} students={students} />
     </div>
   );
 };
