@@ -14,16 +14,315 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      absences: {
+        Row: {
+          created_at: string
+          etudiant_id: string
+          heures: number
+          id: string
+          matiere_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          etudiant_id: string
+          heures?: number
+          id?: string
+          matiere_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          etudiant_id?: string
+          heures?: number
+          id?: string
+          matiere_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "absences_etudiant_id_fkey"
+            columns: ["etudiant_id"]
+            isOneToOne: false
+            referencedRelation: "etudiants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "absences_matiere_id_fkey"
+            columns: ["matiere_id"]
+            isOneToOne: false
+            referencedRelation: "matieres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etudiants: {
+        Row: {
+          bac: string | null
+          created_at: string
+          date_naissance: string | null
+          etablissement: string | null
+          id: string
+          lieu_naissance: string | null
+          matricule: string
+          nom: string
+          prenom: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          bac?: string | null
+          created_at?: string
+          date_naissance?: string | null
+          etablissement?: string | null
+          id?: string
+          lieu_naissance?: string | null
+          matricule: string
+          nom: string
+          prenom: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          bac?: string | null
+          created_at?: string
+          date_naissance?: string | null
+          etablissement?: string | null
+          id?: string
+          lieu_naissance?: string | null
+          matricule?: string
+          nom?: string
+          prenom?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      evaluations: {
+        Row: {
+          created_at: string
+          date_saisie: string
+          etudiant_id: string
+          id: string
+          matiere_id: string
+          note: number
+          type: Database["public"]["Enums"]["eval_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_saisie?: string
+          etudiant_id: string
+          id?: string
+          matiere_id: string
+          note: number
+          type: Database["public"]["Enums"]["eval_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_saisie?: string
+          etudiant_id?: string
+          id?: string
+          matiere_id?: string
+          note?: number
+          type?: Database["public"]["Enums"]["eval_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluations_etudiant_id_fkey"
+            columns: ["etudiant_id"]
+            isOneToOne: false
+            referencedRelation: "etudiants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_matiere_id_fkey"
+            columns: ["matiere_id"]
+            isOneToOne: false
+            referencedRelation: "matieres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matieres: {
+        Row: {
+          code: string
+          coefficient: number
+          created_at: string
+          credits: number
+          id: string
+          libelle: string
+          ordre: number
+          ue_id: string
+        }
+        Insert: {
+          code: string
+          coefficient?: number
+          created_at?: string
+          credits?: number
+          id?: string
+          libelle: string
+          ordre?: number
+          ue_id: string
+        }
+        Update: {
+          code?: string
+          coefficient?: number
+          created_at?: string
+          credits?: number
+          id?: string
+          libelle?: string
+          ordre?: number
+          ue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matieres_ue_id_fkey"
+            columns: ["ue_id"]
+            isOneToOne: false
+            referencedRelation: "ues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          bac: string | null
+          created_at: string
+          date_naissance: string | null
+          etablissement: string | null
+          id: string
+          lieu_naissance: string | null
+          matricule: string | null
+          nom: string | null
+          prenom: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bac?: string | null
+          created_at?: string
+          date_naissance?: string | null
+          etablissement?: string | null
+          id?: string
+          lieu_naissance?: string | null
+          matricule?: string | null
+          nom?: string | null
+          prenom?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bac?: string | null
+          created_at?: string
+          date_naissance?: string | null
+          etablissement?: string | null
+          id?: string
+          lieu_naissance?: string | null
+          matricule?: string | null
+          nom?: string | null
+          prenom?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      semestres: {
+        Row: {
+          annee_universitaire: string
+          code: string
+          created_at: string
+          id: string
+          libelle: string
+        }
+        Insert: {
+          annee_universitaire: string
+          code: string
+          created_at?: string
+          id?: string
+          libelle: string
+        }
+        Update: {
+          annee_universitaire?: string
+          code?: string
+          created_at?: string
+          id?: string
+          libelle?: string
+        }
+        Relationships: []
+      }
+      ues: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          libelle: string
+          semestre_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          libelle: string
+          semestre_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          libelle?: string
+          semestre_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ues_semestre_id_fkey"
+            columns: ["semestre_id"]
+            isOneToOne: false
+            referencedRelation: "semestres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin_or_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "secretariat" | "enseignant" | "etudiant"
+      eval_type: "cc" | "examen" | "rattrapage"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +449,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "secretariat", "enseignant", "etudiant"],
+      eval_type: ["cc", "examen", "rattrapage"],
+    },
   },
 } as const
