@@ -1,1 +1,7 @@
 project_id = "htieromytwazmqmhxnpc"
+
+[functions.import-students]
+verify_jwt = true
+
+[functions.bootstrap-admin]
+verify_jwt = false
