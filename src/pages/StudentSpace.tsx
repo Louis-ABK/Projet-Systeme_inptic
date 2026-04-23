@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { STUDENTS, getMention, getDecision, getCreditsS5, getCreditsS6, S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
+import { getMention, getDecision, getCreditsS5, getCreditsS6, S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
+import { useStudents } from "@/hooks/use-students";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { BulletinModal } from "@/components/BulletinModal";
 import { Grade } from "@/components/Grade";
-import { LogOut, FileText, GraduationCap, BookOpen } from "lucide-react";
+import { LogOut, FileText, GraduationCap, BookOpen, Loader2 } from "lucide-react";
 import logo from "@/assets/logo-inptic.jpg";
 import { cn } from "@/lib/utils";
 
@@ -16,28 +17,39 @@ const StudentSpace = () => {
   const { user, logout } = useAuth();
   const [view, setView] = useState<View>("annuel");
   const [open, setOpen] = useState(false);
+  const { students, loading } = useStudents();
 
   const student = useMemo(
-    () => STUDENTS.find((s) => s.matricule === user?.matricule),
-    [user]
+    () => students.find((s) => s.matricule === user?.matricule),
+    [user, students]
   );
 
-  // Rang (hook appelé inconditionnellement)
   const rank = useMemo(() => {
     if (!student) return 0;
-    const sorted = [...STUDENTS].sort((a, b) => {
+    const sorted = [...students].sort((a, b) => {
       if (view === "s5") return b.s5.moyenne - a.s5.moyenne;
       if (view === "s6") return b.s6.moyenne - a.s6.moyenne;
       return b.moyenneGenerale - a.moyenneGenerale;
     });
     return sorted.findIndex((s) => s.matricule === student.matricule) + 1;
-  }, [student, view]);
+  }, [student, view, students]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!student) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
         <Card className="p-6 max-w-md">
           <p className="text-destructive font-semibold">Étudiant introuvable.</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Vos données ne sont pas encore enregistrées. Contactez l'administration.
+          </p>
           <Button onClick={logout} variant="outline" className="mt-4">
             <LogOut className="h-4 w-4 mr-1.5" /> Se déconnecter
           </Button>
@@ -56,7 +68,6 @@ const StudentSpace = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header personnalisé étudiant */}
       <header className="bg-gradient-header text-primary-foreground shadow-elegant">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <div className="bg-white rounded-full p-1.5 shadow-card-soft shrink-0">
@@ -76,7 +87,6 @@ const StudentSpace = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-5 animate-fade-in">
-        {/* Synthèse */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">Moyenne S5</p>
@@ -104,7 +114,6 @@ const StudentSpace = () => {
           </Card>
         </div>
 
-        {/* Décision du jury */}
         <Card className="p-4 border-l-4 border-l-primary">
           <div className="flex items-center gap-3">
             <GraduationCap className="h-6 w-6 text-primary shrink-0" />
@@ -123,7 +132,6 @@ const StudentSpace = () => {
           </div>
         </Card>
 
-        {/* Sélecteur + bulletin */}
         <Card className="p-4">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
             <Tabs value={view} onValueChange={(v) => setView(v as View)}>
@@ -145,12 +153,11 @@ const StudentSpace = () => {
           </div>
         </Card>
 
-        {/* Notes détaillées regroupées par UE */}
         {subjects && grades ? (
           <Card className="overflow-hidden">
             <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 font-semibold">
               <BookOpen className="h-4 w-4" />
-              Notes du {view === "s5" ? "Semestre 5" : "Semestre 6"} · Rang {rank}/{STUDENTS.length}
+              Notes du {view === "s5" ? "Semestre 5" : "Semestre 6"} · Rang {rank}/{students.length}
             </div>
             <table className="w-full text-sm">
               <thead className="bg-muted">
@@ -171,16 +178,13 @@ const StudentSpace = () => {
                     0
                   );
                   const moyUE = sum / totalCoef;
-                  const totalCred = ueSubjects.reduce((a, b) => a + b.credits, 0);
+                  const totalCredUE = ueSubjects.reduce((a, b) => a + b.credits, 0);
                   const validated = moyUE >= 10 || (grades as any).moyenne >= 10;
                   return (
                     <>
-                      {/* Ligne UE */}
                       <tr key={ue} className="bg-primary/10">
-                        <td className="px-4 py-2 font-bold text-primary">
-                          {ue}
-                        </td>
-                        <td className="text-center px-3 py-2 font-bold">{totalCred}</td>
+                        <td className="px-4 py-2 font-bold text-primary">{ue}</td>
+                        <td className="text-center px-3 py-2 font-bold">{totalCredUE}</td>
                         <td className="text-center px-3 py-2 font-bold">{totalCoef.toFixed(2).replace(".", ",")}</td>
                         <td className="text-center px-3 py-2">
                           <span className={cn(
@@ -199,7 +203,6 @@ const StudentSpace = () => {
                           </span>
                         </td>
                       </tr>
-                      {/* Lignes matières */}
                       {ueSubjects.map((s, i) => (
                         <tr key={s.key} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
                           <td className="px-4 py-2 pl-8 text-muted-foreground">{s.label}</td>
@@ -242,7 +245,7 @@ const StudentSpace = () => {
           <Card className="overflow-hidden">
             <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 font-semibold">
               <BookOpen className="h-4 w-4" />
-              Bilan annuel · Rang {rank}/{STUDENTS.length}
+              Bilan annuel · Rang {rank}/{students.length}
             </div>
             <table className="w-full text-sm">
               <thead className="bg-muted">
@@ -278,7 +281,7 @@ const StudentSpace = () => {
         </p>
       </main>
 
-      <BulletinModal student={student} view={view} open={open} onOpenChange={setOpen} />
+      <BulletinModal student={student} view={view} open={open} onOpenChange={setOpen} students={students} />
     </div>
   );
 };
