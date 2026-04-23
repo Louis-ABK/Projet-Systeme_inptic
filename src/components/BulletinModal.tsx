@@ -272,16 +272,16 @@ export const BulletinModal = ({
             </tbody>
           </table>
 
-          {view === "s5" && <SemesterBulletin student={student} sem="s5" rank={rank} />}
-          {view === "s6" && <SemesterBulletin student={student} sem="s6" rank={rank} />}
-          {view === "annuel" && <AnnualBulletin student={student} rank={rank} />}
+          {view === "s5" && <SemesterBulletin student={student} sem="s5" rank={rank} classData={classData} />}
+          {view === "s6" && <SemesterBulletin student={student} sem="s6" rank={rank} classData={classData} />}
+          {view === "annuel" && <AnnualBulletin student={student} rank={rank} classData={classData} />}
 
           {/* Statistiques de la promotion (§5.5 du cahier des charges) */}
           <table className="w-full text-[10.5px] border-collapse mt-3 mb-2">
             <thead>
               <tr className="bg-[#e8e8e8]">
                 <th className="border border-black px-2 py-1 font-bold" colSpan={4}>
-                  Statistiques de la promotion ({STUDENTS.length} étudiants)
+                  Statistiques de la promotion ({classData.total} étudiants)
                 </th>
               </tr>
               <tr className="bg-[#f5f5f5]">
@@ -296,10 +296,10 @@ export const BulletinModal = ({
                 {(() => {
                   const stats =
                     view === "s5"
-                      ? promoStats.s5
+                      ? classData.stats.s5
                       : view === "s6"
-                      ? promoStats.s6
-                      : promoStats.annuel;
+                      ? classData.stats.s6
+                      : classData.stats.annuel;
                   return (
                     <>
                       <td className="border border-black px-2 py-1 text-center font-semibold">
@@ -372,17 +372,20 @@ const SemesterBulletin = ({
   student,
   sem,
   rank,
+  classData,
 }: {
   student: Student;
   sem: "s5" | "s6";
   rank: number;
+  classData: any;
 }) => {
   const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
   const grades = sem === "s5" ? student.s5 : student.s6;
   const ues = Array.from(new Set(subjects.map((s) => s.ue)));
   const mention = getMention(grades.moyenne);
-  const classMoy = sem === "s5" ? classAverages.s5Moy : classAverages.s6Moy;
-  const avgs = sem === "s5" ? classAverages.s5 : classAverages.s6;
+  const classMoy = sem === "s5" ? classData.s5Moy : classData.s6Moy;
+  const avgs = sem === "s5" ? classData.s5 : classData.s6;
+  const totalStudents = classData.total;
 
   const ueMoy = (ueName: string) => {
     const subs = subjects.filter((s) => s.ue === ueName);
@@ -525,7 +528,7 @@ const SemesterBulletin = ({
           <tr>
             <td className="border border-black px-2 py-1.5 text-center">
               {rank}
-              <sup>ème</sup> / {STUDENTS.length}
+              <sup>ème</sup> / {totalStudents}
             </td>
             <td className="border border-black px-2 py-1.5 text-center font-semibold">{mention}</td>
           </tr>
@@ -594,7 +597,8 @@ const SemesterBulletin = ({
   );
 };
 
-const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) => {
+const AnnualBulletin = ({ student, rank, classData }: { student: Student; rank: number; classData: any }) => {
+  const totalStudents = classData.total;
   const decision = getDecision(student.moyenneGenerale, student.s5.moyenne, student.s6.moyenne, student);
   const credS5 = getCreditsS5(student);
   const credS6 = getCreditsS6(student);
@@ -622,7 +626,7 @@ const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) =
             </td>
             <td className="border border-black px-1 py-1.5 text-center">{credS5} / 30</td>
             <td className="border border-black px-1 py-1.5 text-center">
-              <Note v={classAverages.s5Moy} />
+              <Note v={classData.s5Moy} />
             </td>
           </tr>
           <tr>
@@ -633,7 +637,7 @@ const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) =
             </td>
             <td className="border border-black px-1 py-1.5 text-center">{credS6} / 30</td>
             <td className="border border-black px-1 py-1.5 text-center">
-              <Note v={classAverages.s6Moy} />
+              <Note v={classData.s6Moy} />
             </td>
           </tr>
           <tr className="bg-[#fff3cd]">
@@ -646,7 +650,7 @@ const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) =
               {credits} / 60
             </td>
             <td className="border border-black px-1 py-1.5 text-center">
-              <Note v={classAverages.annuel} bold />
+              <Note v={classData.annuel} bold />
             </td>
           </tr>
         </tbody>
@@ -663,7 +667,7 @@ const AnnualBulletin = ({ student, rank }: { student: Student; rank: number }) =
           <tr>
             <td className="border border-black px-2 py-1.5 text-center">
               {rank}
-              <sup>ème</sup> / {STUDENTS.length}
+              <sup>ème</sup> / {totalStudents}
             </td>
             <td className="border border-black px-2 py-1.5 text-center font-semibold">{mention}</td>
           </tr>
