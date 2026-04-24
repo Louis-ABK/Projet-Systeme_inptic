@@ -1,6 +1,11 @@
 /**
  * Récupération des étudiants + notes depuis Supabase.
  * Reconstruit la structure Student attendue par les composants existants.
+ *
+ * Règle de calcul de la note finale par matière :
+ *  - Si CC + Examen : base = CC*0.4 + Examen*0.6
+ *  - Sinon : la note disponible (Examen seul, CC seul, ou Rattrapage seul)
+ *  - Si Rattrapage présent : note finale = max(base, Rattrapage)
  */
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -30,12 +35,29 @@ const computeMoy = (
     coef = 0;
   subjects.forEach((s) => {
     const v = grades[s.key];
-    if (typeof v === "number" && !isNaN(v)) {
+    if (typeof v === "number" && !isNaN(v) && v > 0) {
       sum += v * s.coef;
       coef += s.coef;
     }
   });
   return coef ? +(sum / coef).toFixed(2) : 0;
+};
+
+type EvalEntry = { cc?: number; examen?: number; rattrapage?: number };
+
+const finalNoteForSubject = (e: EvalEntry): number => {
+  const hasCC = typeof e.cc === "number" && !isNaN(e.cc);
+  const hasEx = typeof e.examen === "number" && !isNaN(e.examen);
+  const hasRat = typeof e.rattrapage === "number" && !isNaN(e.rattrapage);
+
+  let base: number | null = null;
+  if (hasCC && hasEx) base = e.cc! * 0.4 + e.examen! * 0.6;
+  else if (hasEx) base = e.examen!;
+  else if (hasCC) base = e.cc!;
+
+  if (hasRat && base !== null) return Math.max(base, e.rattrapage!);
+  if (hasRat) return e.rattrapage!;
+  return base ?? 0;
 };
 
 export const fetchStudents = async (): Promise<Student[]> => {
@@ -56,21 +78,20 @@ export const fetchStudents = async (): Promise<Student[]> => {
   const codeById = new Map<string, string>();
   (matieres ?? []).forEach((m: any) => codeById.set(m.id, m.code));
 
-  // Pour chaque étudiant : map code -> note (on prend examen/rattrapage en priorité)
-  const evalByStudent = new Map<string, Map<string, { note: number; type: string }>>();
+  // Pour chaque étudiant : map code -> {cc, examen, rattrapage}
+  const evalByStudent = new Map<string, Map<string, EvalEntry>>();
   (evaluations ?? []).forEach((ev: any) => {
     const code = codeById.get(ev.matiere_id);
     if (!code) return;
     if (!evalByStudent.has(ev.etudiant_id))
       evalByStudent.set(ev.etudiant_id, new Map());
     const m = evalByStudent.get(ev.etudiant_id)!;
-    const existing = m.get(code);
-    // Priorité : rattrapage > examen > cc
-    const priority = (t: string) =>
-      t === "rattrapage" ? 3 : t === "examen" ? 2 : 1;
-    if (!existing || priority(ev.type) >= priority(existing.type)) {
-      m.set(code, { note: Number(ev.note), type: ev.type });
-    }
+    const cur = m.get(code) || {};
+    const note = Number(ev.note);
+    if (ev.type === "cc") cur.cc = note;
+    else if (ev.type === "examen") cur.examen = note;
+    else if (ev.type === "rattrapage") cur.rattrapage = note;
+    m.set(code, cur);
   });
 
   const s5Codes = new Set(S5_SUBJECTS.map((s) => s.key));
@@ -81,14 +102,19 @@ export const fetchStudents = async (): Promise<Student[]> => {
     const s6: any = buildEmptyS6();
     const notes = evalByStudent.get(e.id);
     if (notes) {
-      notes.forEach(({ note }, code) => {
-        if (s5Codes.has(code as any)) s5[code] = note;
-        else if (s6Codes.has(code as any)) s6[code] = note;
+      notes.forEach((entry, code) => {
+        const finale = finalNoteForSubject(entry);
+        if (s5Codes.has(code as any)) s5[code] = finale;
+        else if (s6Codes.has(code as any)) s6[code] = finale;
       });
     }
     s5.moyenne = computeMoy(s5, S5_SUBJECTS as any);
     s6.moyenne = computeMoy(s6, S6_SUBJECTS as any);
-    const moyenneGenerale = +((s5.moyenne + s6.moyenne) / 2).toFixed(2);
+    let moyenneGenerale = 0;
+    if (s5.moyenne > 0 && s6.moyenne > 0)
+      moyenneGenerale = +((s5.moyenne + s6.moyenne) / 2).toFixed(2);
+    else if (s5.moyenne > 0) moyenneGenerale = s5.moyenne;
+    else if (s6.moyenne > 0) moyenneGenerale = s6.moyenne;
     return {
       matricule: e.matricule,
       nom: e.nom,

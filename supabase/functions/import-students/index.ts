@@ -1,6 +1,6 @@
 // Edge function : import en masse d'étudiants + notes depuis le client.
 // Le client envoie un payload JSON déjà parsé (matricule, nom, prenom, grades S5/S6).
-// La fonction crée les comptes Auth manquants et upsert les évaluations.
+// La fonction crée les comptes Auth manquants et upsert les évaluations (type "examen").
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -27,6 +27,23 @@ const slug = (s: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "");
+
+// Recherche d'un user par email en paginant l'API Auth admin
+async function findUserByEmail(admin: any, email: string): Promise<string | null> {
+  const target = email.toLowerCase();
+  let page = 1;
+  while (page <= 20) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error || !data?.users?.length) return null;
+    const found = data.users.find(
+      (u: any) => (u.email || "").toLowerCase() === target
+    );
+    if (found) return found.id;
+    if (data.users.length < 200) return null;
+    page++;
+  }
+  return null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -129,15 +146,9 @@ Deno.serve(async (req) => {
           createdStudents++;
         }
 
-        // 3) Compte Auth
+        // 3) Compte Auth (créer si inexistant, sinon récupérer)
         let userId: string | null = existing?.user_id ?? null;
         if (!userId) {
-          // chercher s'il existe déjà
-          const { data: list } = await admin.auth.admin.listUsers({
-            page: 1,
-            perPage: 1,
-          });
-          // listUsers ne filtre pas par email — on tente createUser et on traite la collision
           const { data: created, error: cErr } =
             await admin.auth.admin.createUser({
               email,
@@ -146,16 +157,13 @@ Deno.serve(async (req) => {
               user_metadata: { nom, prenom, matricule, role: "etudiant" },
             });
           if (cErr) {
-            // user existe déjà : on le retrouve par email
-            const { data: page } = await admin.auth.admin.listUsers({
-              page: 1,
-              perPage: 1000,
-            });
-            const found = page.users.find(
-              (u: any) => (u.email || "").toLowerCase() === email
-            );
-            if (found) userId = found.id;
-            else errors.push(`${matricule} (auth) : ${cErr.message}`);
+            // Probablement déjà existant : retrouver par email
+            const found = await findUserByEmail(admin, email);
+            if (found) {
+              userId = found;
+            } else {
+              errors.push(`${matricule} (auth) : ${cErr.message}`);
+            }
           } else if (created.user) {
             userId = created.user.id;
             createdAccounts++;
@@ -168,7 +176,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // 4) Notes : on remplace par upsert (CC=note importée, type "examen" par convention)
+        // 4) Notes : type "examen" (note finale issue du fichier Excel)
         const allGrades: Array<{ code: string; note: number }> = [];
         for (const [code, note] of Object.entries(s.s5 ?? {}))
           if (typeof note === "number" && !isNaN(note))
@@ -179,7 +187,11 @@ Deno.serve(async (req) => {
 
         for (const g of allGrades) {
           const matId = matiereByCode.get(g.code);
-          if (!matId) continue;
+          if (!matId) {
+            errors.push(`${matricule}/${g.code} : matière inconnue`);
+            continue;
+          }
+          const noteClamped = Math.max(0, Math.min(20, Number(g.note)));
           const { error: upErr } = await admin
             .from("evaluations")
             .upsert(
@@ -187,7 +199,7 @@ Deno.serve(async (req) => {
                 etudiant_id: etudiantId,
                 matiere_id: matId,
                 type: "examen",
-                note: g.note,
+                note: noteClamped,
               },
               { onConflict: "etudiant_id,matiere_id,type" }
             );

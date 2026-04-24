@@ -79,17 +79,21 @@ const Index = () => {
         return;
       }
 
-      // Conversion : s5/s6 → { code: note }
+      // Conversion : s5/s6 → { code: note } (on garde toute valeur numérique présente)
       const payload = {
         students: parsed.map((s) => ({
           matricule: s.matricule,
           nom: s.nom,
           prenom: s.prenom,
           s5: Object.fromEntries(
-            Object.entries(s.s5).filter(([k, v]) => k !== "moyenne" && v > 0)
+            Object.entries(s.s5).filter(
+              ([k, v]) => k !== "moyenne" && typeof v === "number" && !isNaN(v) && v > 0
+            )
           ),
           s6: Object.fromEntries(
-            Object.entries(s.s6).filter(([k, v]) => k !== "moyenne" && v > 0)
+            Object.entries(s.s6).filter(
+              ([k, v]) => k !== "moyenne" && typeof v === "number" && !isNaN(v) && v > 0
+            )
           ),
         })),
       };
