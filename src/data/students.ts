@@ -15,6 +15,10 @@ export type Student = {
   matricule: string;
   nom: string;
   prenom: string;
+  dateNaissance?: string | null;
+  lieuNaissance?: string | null;
+  bac?: string | null;
+  etablissement?: string | null;
   s5: S5Grades;
   s6: S6Grades;
   moyenneGenerale: number;
