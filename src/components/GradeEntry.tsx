@@ -347,18 +347,7 @@ export const GradeEntry = () => {
             <UserPlus className="h-4 w-4 mr-1.5" /> Nouvel étudiant
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <Label className="text-xs">Matricule *</Label>
-            <Input
-              placeholder="Ex. 2026GI025"
-              value={identity.matricule}
-              onChange={(e) =>
-                setIdentity({ ...identity, matricule: e.target.value.toUpperCase() })
-              }
-              className="h-10 font-mono"
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Nom *</Label>
             <Input
@@ -377,8 +366,17 @@ export const GradeEntry = () => {
               className="h-10"
             />
           </div>
-          <div>
-            <Label className="text-xs">Date de naissance</Label>
+        </div>
+        {identity.matricule && (
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Identifiant de connexion généré :{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {identity.matricule}
+            </span>{" "}
+            · mot de passe = identifiant
+          </p>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
             <Input
               type="date"
               value={identity.dateNaissance}
