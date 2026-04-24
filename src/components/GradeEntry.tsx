@@ -12,10 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save, RotateCcw, AlertCircle, CheckCircle2, UserPlus } from "lucide-react";
+import { Save, RotateCcw, AlertCircle, CheckCircle2, UserPlus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { saveIdentity as persistIdentity, loadIdentity } from "@/lib/identity-store";
+import { supabase } from "@/integrations/supabase/client";
+
 
 type Sem = "s5" | "s6";
 
@@ -71,8 +73,10 @@ export const GradeEntry = () => {
   const [identity, setIdentity] = useState<IdentityForm>(emptyIdentity);
   const [sem, setSem] = useState<Sem>("s5");
   const [absence, setAbsence] = useState("0");
+  const [saving, setSaving] = useState(false);
   const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
   const [entries, setEntries] = useState<Record<string, any>>(() => loadEntries());
+
 
   // Pré-remplit identité depuis store partagé quand le matricule existe déjà
   useEffect(() => {
@@ -210,7 +214,7 @@ export const GradeEntry = () => {
 
   const hasErrors = Object.keys(errors).length > 0 || !!absenceError;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!identityComplete) {
       toast({
         title: "Identité incomplète",
@@ -227,10 +231,11 @@ export const GradeEntry = () => {
       });
       return;
     }
+
+    // Sauvegarde locale (brouillon)
     const data = { ...entries, [sessionKey]: { identity, absence, notes: current } };
     setEntries(data);
     saveEntries(data);
-    // Synchronise l'identité dans le store partagé (utilisé par les bulletins)
     persistIdentity(identity.matricule, {
       nom: identity.nom,
       prenom: identity.prenom,
@@ -239,11 +244,57 @@ export const GradeEntry = () => {
       bac: identity.bac,
       etablissement: identity.etablissement,
     });
-    toast({
-      title: "Notes enregistrées",
-      description: `${identity.nom} ${identity.prenom} — Semestre ${sem === "s5" ? "5" : "6"}`,
+
+    // Construit le payload pour l'edge function
+    const notesPayload: Record<string, { cc?: number; examen?: number; rattrapage?: number }> = {};
+    Object.entries(current).forEach(([code, e]) => {
+      const v: any = {};
+      const cc = parseFloat((e.cc || "").replace(",", "."));
+      const ex = parseFloat((e.exam || "").replace(",", "."));
+      const rat = parseFloat((e.rattrapage || "").replace(",", "."));
+      if (!isNaN(cc)) v.cc = cc;
+      if (!isNaN(ex)) v.examen = ex;
+      if (!isNaN(rat)) v.rattrapage = rat;
+      if (Object.keys(v).length > 0) notesPayload[code] = v;
     });
+
+    setSaving(true);
+    try {
+      const { data: resp, error } = await supabase.functions.invoke("save-grades", {
+        body: {
+          identity: {
+            matricule: identity.matricule.trim(),
+            nom: identity.nom.trim(),
+            prenom: identity.prenom.trim(),
+            dateNaissance: identity.dateNaissance || undefined,
+            lieuNaissance: identity.lieuNaissance || undefined,
+            bac: identity.bac || undefined,
+            etablissement: identity.etablissement || undefined,
+          },
+          semestre: sem,
+          absenceHeures: parseFloat(absence.replace(",", ".")) || 0,
+          notes: notesPayload,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (resp?.error) throw new Error(resp.error);
+
+      toast({
+        title: "Notes enregistrées",
+        description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}.`,
+      });
+      if (resp?.errors?.length) console.warn("[save-grades]", resp.errors);
+    } catch (err: any) {
+      toast({
+        title: "Erreur d'enregistrement",
+        description: err?.message || "Impossible d'enregistrer.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   const handleReset = () => {
     const updated = { ...entries };
