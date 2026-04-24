@@ -642,7 +642,7 @@ export const GradeEntry = () => {
               <span>Corrigez les notes (0–20) avant d'enregistrer.</span>
             </>
           ) : !identityComplete ? (
-            <span>Renseignez l'identité (matricule, nom, prénom).</span>
+            <span>Renseignez le nom et le prénom de l'étudiant.</span>
           ) : computed.allComplete ? (
             <>
               <CheckCircle2 className="h-4 w-4 text-success" />
