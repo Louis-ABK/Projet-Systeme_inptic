@@ -623,15 +623,16 @@ export const GradeEntry = () => {
               <span>Saisie complète — prête à être enregistrée.</span>
             </>
           ) : (
-            <span>Sauvegarde locale (navigateur). Les rattrapages remplacent si meilleurs.</span>
+            <span>Les notes sont enregistrées dans la base de données. Le rattrapage remplace si meilleur.</span>
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleReset}>
+          <Button variant="outline" onClick={handleReset} disabled={saving}>
             <RotateCcw className="h-4 w-4 mr-1.5" /> Réinitialiser
           </Button>
-          <Button onClick={handleSave} disabled={hasErrors} className="bg-primary">
-            <Save className="h-4 w-4 mr-1.5" /> Enregistrer la saisie
+          <Button onClick={handleSave} disabled={hasErrors || saving} className="bg-primary">
+            {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            {saving ? "Enregistrement…" : "Enregistrer la saisie"}
           </Button>
         </div>
       </div>
