@@ -31,7 +31,7 @@ interface SubjectEntry {
 }
 
 interface IdentityForm {
-  matricule: string;
+  matricule: string; // auto-généré, sert d'identifiant de connexion
   nom: string;
   prenom: string;
   dateNaissance: string;
@@ -56,6 +56,20 @@ const buildEmpty = (subjects: readonly any[]): Record<string, SubjectEntry> => {
   const o: Record<string, SubjectEntry> = {};
   subjects.forEach((s) => (o[s.key] = { cc: "", exam: "", rattrapage: "" }));
   return o;
+};
+
+// Génère un matricule de connexion stable depuis prénom + nom
+const slugify = (s: string) =>
+  String(s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+const buildMatricule = (prenom: string, nom: string) => {
+  const p = slugify(prenom);
+  const n = slugify(nom);
+  if (!p || !n) return "";
+  return `${p}_${n}`.toUpperCase();
 };
 
 const emptyIdentity: IdentityForm = {
