@@ -51,7 +51,15 @@ export const BulletinModal = ({
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const identity = student ? loadIdentity(student.matricule) : {};
+  const localIdentity = student ? loadIdentity(student.matricule) : {};
+  const identity = student
+    ? {
+        dateNaissance: student.dateNaissance || localIdentity.dateNaissance || "",
+        lieuNaissance: student.lieuNaissance || localIdentity.lieuNaissance || "",
+        bac: student.bac || localIdentity.bac || "",
+        etablissement: student.etablissement || localIdentity.etablissement || "",
+      }
+    : ({} as any);
 
   const classData = useMemo(() => {
     const list = students.length ? students : student ? [student] : [];

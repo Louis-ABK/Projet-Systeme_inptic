@@ -15,6 +15,10 @@ export type Student = {
   matricule: string;
   nom: string;
   prenom: string;
+  dateNaissance?: string | null;
+  lieuNaissance?: string | null;
+  bac?: string | null;
+  etablissement?: string | null;
   s5: S5Grades;
   s6: S6Grades;
   moyenneGenerale: number;
@@ -68,6 +72,7 @@ export const getDecision = (
   student?: Student
 ): { label: string; type: 'admis' | 'compensation' | 'reprise' | 'refuse' } => {
   // Règles §4.7 du cahier des charges
+  // Cas "compensation" (moyGen >= 10 mais un semestre < 10) → décision jury : redoublement
   if (student) {
     const credS5 = getCreditsS5(student);
     const credS6 = getCreditsS6(student);
@@ -82,14 +87,11 @@ export const getDecision = (
 
     if (moyGen >= 10 && s5 >= 10 && s6 >= 10)
       return { label: 'Diplômé(e)', type: 'admis' };
-    if (moyGen >= 10)
-      return { label: 'Admis(e) par compensation', type: 'compensation' };
     if (!ue62Acquise && credS5 >= 30 && credS6 >= 22)
       return { label: 'Reprise de soutenance', type: 'reprise' };
     return { label: 'Redouble la Licence 3', type: 'refuse' };
   }
   if (moyGen >= 10 && s5 >= 10 && s6 >= 10) return { label: 'Diplômé(e)', type: 'admis' };
-  if (moyGen >= 10) return { label: 'Admis(e) par compensation', type: 'compensation' };
   return { label: 'Redouble la Licence 3', type: 'refuse' };
 };
 

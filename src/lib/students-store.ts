@@ -66,7 +66,12 @@ export const fetchStudents = async (): Promise<Student[]> => {
     { data: matieres, error: mErr },
     { data: evaluations, error: vErr },
   ] = await Promise.all([
-    supabase.from("etudiants").select("id, matricule, nom, prenom").order("matricule"),
+    supabase
+      .from("etudiants")
+      .select(
+        "id, matricule, nom, prenom, date_naissance, lieu_naissance, bac, etablissement"
+      )
+      .order("matricule"),
     supabase.from("matieres").select("id, code"),
     supabase.from("evaluations").select("etudiant_id, matiere_id, note, type"),
   ]);
@@ -119,6 +124,10 @@ export const fetchStudents = async (): Promise<Student[]> => {
       matricule: e.matricule,
       nom: e.nom,
       prenom: e.prenom,
+      dateNaissance: e.date_naissance,
+      lieuNaissance: e.lieu_naissance,
+      bac: e.bac,
+      etablissement: e.etablissement,
       s5,
       s6,
       moyenneGenerale,

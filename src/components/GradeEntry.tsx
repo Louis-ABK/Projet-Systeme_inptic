@@ -31,7 +31,7 @@ interface SubjectEntry {
 }
 
 interface IdentityForm {
-  matricule: string;
+  matricule: string; // auto-généré, sert d'identifiant de connexion
   nom: string;
   prenom: string;
   dateNaissance: string;
@@ -58,6 +58,20 @@ const buildEmpty = (subjects: readonly any[]): Record<string, SubjectEntry> => {
   return o;
 };
 
+// Génère un matricule de connexion stable depuis prénom + nom
+const slugify = (s: string) =>
+  String(s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+const buildMatricule = (prenom: string, nom: string) => {
+  const p = slugify(prenom);
+  const n = slugify(nom);
+  if (!p || !n) return "";
+  return `${p}_${n}`.toUpperCase();
+};
+
 const emptyIdentity: IdentityForm = {
   matricule: "",
   nom: "",
@@ -77,6 +91,18 @@ export const GradeEntry = () => {
   const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
   const [entries, setEntries] = useState<Record<string, any>>(() => loadEntries());
 
+
+  // Génère automatiquement le matricule de connexion à partir de nom + prénom
+  useEffect(() => {
+    const m = buildMatricule(identity.prenom, identity.nom);
+    if (m && m !== identity.matricule) {
+      setIdentity((cur) => ({ ...cur, matricule: m }));
+    }
+    if (!m && identity.matricule) {
+      setIdentity((cur) => ({ ...cur, matricule: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity.nom, identity.prenom]);
 
   // Pré-remplit identité depuis store partagé quand le matricule existe déjà
   useEffect(() => {
@@ -218,7 +244,7 @@ export const GradeEntry = () => {
     if (!identityComplete) {
       toast({
         title: "Identité incomplète",
-        description: "Renseignez au minimum matricule, nom et prénom.",
+        description: "Renseignez au minimum le nom et le prénom.",
         variant: "destructive",
       });
       return;
@@ -321,18 +347,7 @@ export const GradeEntry = () => {
             <UserPlus className="h-4 w-4 mr-1.5" /> Nouvel étudiant
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <Label className="text-xs">Matricule *</Label>
-            <Input
-              placeholder="Ex. 2026GI025"
-              value={identity.matricule}
-              onChange={(e) =>
-                setIdentity({ ...identity, matricule: e.target.value.toUpperCase() })
-              }
-              className="h-10 font-mono"
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Nom *</Label>
             <Input
@@ -351,6 +366,17 @@ export const GradeEntry = () => {
               className="h-10"
             />
           </div>
+        </div>
+        {identity.matricule && (
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Identifiant de connexion généré :{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {identity.matricule}
+            </span>{" "}
+            · mot de passe = identifiant
+          </p>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
           <div>
             <Label className="text-xs">Date de naissance</Label>
             <Input
@@ -616,7 +642,7 @@ export const GradeEntry = () => {
               <span>Corrigez les notes (0–20) avant d'enregistrer.</span>
             </>
           ) : !identityComplete ? (
-            <span>Renseignez l'identité (matricule, nom, prénom).</span>
+            <span>Renseignez le nom et le prénom de l'étudiant.</span>
           ) : computed.allComplete ? (
             <>
               <CheckCircle2 className="h-4 w-4 text-success" />
