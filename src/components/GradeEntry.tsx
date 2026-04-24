@@ -244,7 +244,7 @@ export const GradeEntry = () => {
     if (!identityComplete) {
       toast({
         title: "Identité incomplète",
-        description: "Renseignez au minimum matricule, nom et prénom.",
+        description: "Renseignez au minimum le nom et le prénom.",
         variant: "destructive",
       });
       return;
