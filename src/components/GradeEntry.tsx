@@ -377,6 +377,8 @@ export const GradeEntry = () => {
           </p>
         )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          <div>
+            <Label className="text-xs">Date de naissance</Label>
             <Input
               type="date"
               value={identity.dateNaissance}
