@@ -92,6 +92,18 @@ export const GradeEntry = () => {
   const [entries, setEntries] = useState<Record<string, any>>(() => loadEntries());
 
 
+  // Génère automatiquement le matricule de connexion à partir de nom + prénom
+  useEffect(() => {
+    const m = buildMatricule(identity.prenom, identity.nom);
+    if (m && m !== identity.matricule) {
+      setIdentity((cur) => ({ ...cur, matricule: m }));
+    }
+    if (!m && identity.matricule) {
+      setIdentity((cur) => ({ ...cur, matricule: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity.nom, identity.prenom]);
+
   // Pré-remplit identité depuis store partagé quand le matricule existe déjà
   useEffect(() => {
     if (!identity.matricule) return;
