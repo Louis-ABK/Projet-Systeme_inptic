@@ -137,10 +137,27 @@ const parseSheet = (
         prenom = parts.slice(1).join(" ");
       }
     }
+    const dateRaw = findCol(r, [
+      "Date de naissance", "Date naissance", "DateNaissance", "Né(e) le", "Ne le", "DN", "Naissance",
+    ]);
+    const dateNaissance = dateRaw ? toDateString(dateRaw) : "";
+    const lieuNaissance = findCol(r, [
+      "Lieu de naissance", "Lieu naissance", "LieuNaissance", "Lieu",
+    ]);
+    const bac = findCol(r, [
+      "Type de baccalauréat", "Type de baccalaureat", "Type bac", "Bac", "Baccalauréat", "Baccalaureat",
+    ]);
+    const etablissement = findCol(r, [
+      "Établissement d'origine", "Etablissement d'origine", "Établissement", "Etablissement", "École", "Ecole", "Lycée d'origine", "Lycée", "Lycee",
+    ]);
+
     const grades: Record<string, number> = {};
     Object.keys(r).forEach((header) => {
       if (IDENT_HEADERS.has(norm(header))) return;
       if (norm(header).includes("moyenne")) return;
+      if (norm(header).includes("naissance")) return;
+      if (norm(header).includes("etablissement")) return;
+      if (norm(header).includes("bac")) return;
       const key = matchSubjectKey(header, subjects);
       if (key) {
         const v = toNumber(r[header]);
@@ -151,7 +168,16 @@ const parseSheet = (
       }
     });
     if (matricule || nom || prenom) {
-      out.push({ matricule: matricule.trim(), nom: nom.trim(), prenom: prenom.trim(), grades });
+      out.push({
+        matricule: matricule.trim(),
+        nom: nom.trim(),
+        prenom: prenom.trim(),
+        dateNaissance: dateNaissance || undefined,
+        lieuNaissance: lieuNaissance || undefined,
+        bac: bac || undefined,
+        etablissement: etablissement || undefined,
+        grades,
+      });
     }
   });
   return { rows: out, matched };
