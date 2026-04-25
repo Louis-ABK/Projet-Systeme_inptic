@@ -121,7 +121,16 @@ Deno.serve(async (req) => {
 
         const email = `${slug(prenom)}.${slug(nom)}@inptic.ga`;
 
-        // 2) Upsert étudiant
+        // 2) Upsert étudiant (avec champs identité complets)
+        const identityFields = {
+          nom,
+          prenom,
+          date_naissance: s.dateNaissance || null,
+          lieu_naissance: s.lieuNaissance || null,
+          bac: s.bac || null,
+          etablissement: s.etablissement || null,
+        };
+
         const { data: existing } = await admin
           .from("etudiants")
           .select("id, user_id")
@@ -130,16 +139,22 @@ Deno.serve(async (req) => {
 
         let etudiantId: string;
         if (existing) {
+          // Met à jour uniquement les champs fournis (ne pas écraser avec null si absent)
+          const updateFields: any = { nom, prenom };
+          if (s.dateNaissance) updateFields.date_naissance = s.dateNaissance;
+          if (s.lieuNaissance) updateFields.lieu_naissance = s.lieuNaissance;
+          if (s.bac) updateFields.bac = s.bac;
+          if (s.etablissement) updateFields.etablissement = s.etablissement;
           await admin
             .from("etudiants")
-            .update({ nom, prenom })
+            .update(updateFields)
             .eq("id", existing.id);
           etudiantId = existing.id;
           updatedStudents++;
         } else {
           const { data: ins, error: insErr } = await admin
             .from("etudiants")
-            .insert({ matricule, nom, prenom })
+            .insert({ matricule, ...identityFields })
             .select("id")
             .single();
           if (insErr) {
