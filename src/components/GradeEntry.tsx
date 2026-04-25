@@ -311,12 +311,12 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
       if (resp?.error) throw new Error(resp.error);
 
       toast({
-        title: "Notes enregistrées",
-        description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}.`,
+        title: "✓ Notes enregistrées",
+        description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}. L'étudiant apparaît dans le Tableau de bord.`,
       });
       if (resp?.errors?.length) console.warn("[save-grades]", resp.errors);
-      // Recharge le tableau de bord parent pour refléter la saisie
       try { await onSaved?.(); } catch (e) { console.warn("[onSaved]", e); }
+      setTimeout(() => onGoToDashboard?.(), 800);
     } catch (err: any) {
       toast({
         title: "Erreur d'enregistrement",
