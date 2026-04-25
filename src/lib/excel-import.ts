@@ -66,6 +66,10 @@ type RowParsed = {
   matricule: string;
   nom: string;
   prenom: string;
+  dateNaissance?: string;
+  lieuNaissance?: string;
+  bac?: string;
+  etablissement?: string;
   grades: Record<string, number>;
 };
 
@@ -75,8 +79,36 @@ const IDENT_HEADERS = new Set(
     "nom", "name", "lastname",
     "prenom", "firstname",
     "etudiant", "student", "nomprenom", "nometprenom",
+    // Identity extra (à ne PAS interpréter comme matière)
+    "datedenaissance", "datenaissance", "dateneenaissance", "dn", "naissance",
+    "lieudenaissance", "lieunaissance", "lieu",
+    "bac", "typedebac", "typedubaccalaureat", "baccalaureat", "typebac",
+    "etablissement", "etablissementdorigine", "ecole", "lyceedorigine", "lycee",
   ].map(norm)
 );
+
+// Convertit une valeur de date Excel (number ou string) en ISO yyyy-mm-dd
+const toDateString = (v: any): string => {
+  if (v === null || v === undefined || v === "") return "";
+  // Excel serial date
+  if (typeof v === "number" && v > 1000) {
+    // Excel epoch = 1899-12-30
+    const ms = Math.round((v - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  // Format dd/mm/yyyy ou dd-mm-yyyy
+  const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (m) {
+    let [_, dd, mm, yy] = m;
+    if (yy.length === 2) yy = (parseInt(yy) > 30 ? "19" : "20") + yy;
+    return `${yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+  }
+  // Format yyyy-mm-dd déjà ok
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return s;
+};
 
 const findCol = (row: any, candidates: string[]): string => {
   const wanted = candidates.map(norm);
@@ -105,10 +137,27 @@ const parseSheet = (
         prenom = parts.slice(1).join(" ");
       }
     }
+    const dateRaw = findCol(r, [
+      "Date de naissance", "Date naissance", "DateNaissance", "Né(e) le", "Ne le", "DN", "Naissance",
+    ]);
+    const dateNaissance = dateRaw ? toDateString(dateRaw) : "";
+    const lieuNaissance = findCol(r, [
+      "Lieu de naissance", "Lieu naissance", "LieuNaissance", "Lieu",
+    ]);
+    const bac = findCol(r, [
+      "Type de baccalauréat", "Type de baccalaureat", "Type bac", "Bac", "Baccalauréat", "Baccalaureat",
+    ]);
+    const etablissement = findCol(r, [
+      "Établissement d'origine", "Etablissement d'origine", "Établissement", "Etablissement", "École", "Ecole", "Lycée d'origine", "Lycée", "Lycee",
+    ]);
+
     const grades: Record<string, number> = {};
     Object.keys(r).forEach((header) => {
       if (IDENT_HEADERS.has(norm(header))) return;
       if (norm(header).includes("moyenne")) return;
+      if (norm(header).includes("naissance")) return;
+      if (norm(header).includes("etablissement")) return;
+      if (norm(header).includes("bac")) return;
       const key = matchSubjectKey(header, subjects);
       if (key) {
         const v = toNumber(r[header]);
@@ -119,7 +168,16 @@ const parseSheet = (
       }
     });
     if (matricule || nom || prenom) {
-      out.push({ matricule: matricule.trim(), nom: nom.trim(), prenom: prenom.trim(), grades });
+      out.push({
+        matricule: matricule.trim(),
+        nom: nom.trim(),
+        prenom: prenom.trim(),
+        dateNaissance: dateNaissance || undefined,
+        lieuNaissance: lieuNaissance || undefined,
+        bac: bac || undefined,
+        etablissement: etablissement || undefined,
+        grades,
+      });
     }
   });
   return { rows: out, matched };
@@ -150,7 +208,15 @@ export const importStudentsFromExcel = async (
 
   const s5Map = new Map<string, RowParsed>();
   const s6Map = new Map<string, RowParsed>();
-  const identityMap = new Map<string, { nom: string; prenom: string }>();
+  type Identity = {
+    nom: string;
+    prenom: string;
+    dateNaissance?: string;
+    lieuNaissance?: string;
+    bac?: string;
+    etablissement?: string;
+  };
+  const identityMap = new Map<string, Identity>();
 
   for (const file of list) {
     const buffer = await file.arrayBuffer();
@@ -169,9 +235,15 @@ export const importStudentsFromExcel = async (
         const key = r.matricule || `${norm(r.nom)}_${norm(r.prenom)}`;
         if (!key) return;
         target.set(key, r);
-        if (r.nom || r.prenom) {
-          identityMap.set(key, { nom: r.nom, prenom: r.prenom });
-        }
+        const prev = identityMap.get(key) || { nom: "", prenom: "" };
+        identityMap.set(key, {
+          nom: prev.nom || r.nom || "",
+          prenom: prev.prenom || r.prenom || "",
+          dateNaissance: prev.dateNaissance || r.dateNaissance,
+          lieuNaissance: prev.lieuNaissance || r.lieuNaissance,
+          bac: prev.bac || r.bac,
+          etablissement: prev.etablissement || r.etablissement,
+        });
         added++;
       });
       if (added > 0) {
@@ -192,7 +264,7 @@ export const importStudentsFromExcel = async (
   const students: Student[] = [];
 
   allKeys.forEach((key) => {
-    const id = identityMap.get(key) || { nom: "", prenom: "" };
+    const id = identityMap.get(key) || ({ nom: "", prenom: "" } as Identity);
     const s5Row = s5Map.get(key);
     const s6Row = s6Map.get(key);
 
@@ -219,6 +291,10 @@ export const importStudentsFromExcel = async (
       matricule,
       nom: id.nom || s5Row?.nom || s6Row?.nom || "",
       prenom: id.prenom || s5Row?.prenom || s6Row?.prenom || "",
+      dateNaissance: id.dateNaissance || s5Row?.dateNaissance || s6Row?.dateNaissance || null,
+      lieuNaissance: id.lieuNaissance || s5Row?.lieuNaissance || s6Row?.lieuNaissance || null,
+      bac: id.bac || s5Row?.bac || s6Row?.bac || null,
+      etablissement: id.etablissement || s5Row?.etablissement || s6Row?.etablissement || null,
       s5: s5Full,
       s6: s6Full,
       moyenneGenerale,

@@ -82,7 +82,11 @@ const emptyIdentity: IdentityForm = {
   etablissement: "",
 };
 
-export const GradeEntry = () => {
+interface GradeEntryProps {
+  onSaved?: () => void | Promise<void>;
+}
+
+export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
   const { toast } = useToast();
   const [identity, setIdentity] = useState<IdentityForm>(emptyIdentity);
   const [sem, setSem] = useState<Sem>("s5");
@@ -310,6 +314,8 @@ export const GradeEntry = () => {
         description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}.`,
       });
       if (resp?.errors?.length) console.warn("[save-grades]", resp.errors);
+      // Recharge le tableau de bord parent pour refléter la saisie
+      try { await onSaved?.(); } catch (e) { console.warn("[onSaved]", e); }
     } catch (err: any) {
       toast({
         title: "Erreur d'enregistrement",

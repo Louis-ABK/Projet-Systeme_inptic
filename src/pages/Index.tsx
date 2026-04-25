@@ -85,6 +85,10 @@ const Index = () => {
           matricule: s.matricule,
           nom: s.nom,
           prenom: s.prenom,
+          dateNaissance: s.dateNaissance ?? undefined,
+          lieuNaissance: s.lieuNaissance ?? undefined,
+          bac: s.bac ?? undefined,
+          etablissement: s.etablissement ?? undefined,
           s5: Object.fromEntries(
             Object.entries(s.s5).filter(
               ([k, v]) => k !== "moyenne" && typeof v === "number" && !isNaN(v) && v > 0
@@ -192,7 +196,7 @@ const Index = () => {
         </div>
 
         {mode === "entry" ? (
-          <GradeEntry />
+          <GradeEntry onSaved={reload} />
         ) : (
           <>
             <Card className="p-4 shadow-card-soft border-border/60 bg-gradient-to-r from-primary/5 to-transparent">
