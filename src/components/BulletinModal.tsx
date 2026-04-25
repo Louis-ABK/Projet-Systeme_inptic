@@ -180,20 +180,13 @@ export const BulletinModal = ({
             </div>
             <div className="flex flex-col items-center">
               <img src={logo} alt="INPTIC" className="h-[92px] w-[92px] object-contain" />
-              <p className="text-[9px] italic mt-1">— INPTIC —</p>
             </div>
             <div className="text-[10px] leading-tight text-center">
               <p className="font-bold uppercase">République Gabonaise</p>
               <div className="my-1 mx-auto w-24 border-t border-black" />
               <p className="italic font-semibold">Union — Travail — Justice</p>
-              <div className="my-1 mx-auto w-24 border-t border-black" />
-              <p className="font-semibold uppercase text-[9.5px]">Ministère de l'Économie</p>
-              <p className="font-semibold uppercase text-[9.5px]">Numérique</p>
             </div>
           </div>
-
-          {/* Bandeau séparateur double trait */}
-          <div className="border-t-2 border-b border-black my-2" />
 
           {/* Titre */}
           <div className="text-center my-4">
@@ -203,8 +196,6 @@ export const BulletinModal = ({
             <div className="mx-auto mt-1 w-56 border-t border-black" />
             <p className="text-[12px] mt-2">
               Année universitaire : <strong>2025 — 2026</strong>
-              <span className="mx-3">·</span>
-              N° {view.toUpperCase()}-{student.matricule}
             </p>
           </div>
 
