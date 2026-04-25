@@ -84,9 +84,10 @@ const emptyIdentity: IdentityForm = {
 
 interface GradeEntryProps {
   onSaved?: () => void | Promise<void>;
+  onGoToDashboard?: () => void;
 }
 
-export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
+export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) => {
   const { toast } = useToast();
   const [identity, setIdentity] = useState<IdentityForm>(emptyIdentity);
   const [sem, setSem] = useState<Sem>("s5");
