@@ -208,7 +208,15 @@ export const importStudentsFromExcel = async (
 
   const s5Map = new Map<string, RowParsed>();
   const s6Map = new Map<string, RowParsed>();
-  const identityMap = new Map<string, { nom: string; prenom: string }>();
+  type Identity = {
+    nom: string;
+    prenom: string;
+    dateNaissance?: string;
+    lieuNaissance?: string;
+    bac?: string;
+    etablissement?: string;
+  };
+  const identityMap = new Map<string, Identity>();
 
   for (const file of list) {
     const buffer = await file.arrayBuffer();
