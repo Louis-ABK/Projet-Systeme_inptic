@@ -66,6 +66,10 @@ type RowParsed = {
   matricule: string;
   nom: string;
   prenom: string;
+  dateNaissance?: string;
+  lieuNaissance?: string;
+  bac?: string;
+  etablissement?: string;
   grades: Record<string, number>;
 };
 
@@ -75,8 +79,36 @@ const IDENT_HEADERS = new Set(
     "nom", "name", "lastname",
     "prenom", "firstname",
     "etudiant", "student", "nomprenom", "nometprenom",
+    // Identity extra (à ne PAS interpréter comme matière)
+    "datedenaissance", "datenaissance", "dateneenaissance", "dn", "naissance",
+    "lieudenaissance", "lieunaissance", "lieu",
+    "bac", "typedebac", "typedubaccalaureat", "baccalaureat", "typebac",
+    "etablissement", "etablissementdorigine", "ecole", "lyceedorigine", "lycee",
   ].map(norm)
 );
+
+// Convertit une valeur de date Excel (number ou string) en ISO yyyy-mm-dd
+const toDateString = (v: any): string => {
+  if (v === null || v === undefined || v === "") return "";
+  // Excel serial date
+  if (typeof v === "number" && v > 1000) {
+    // Excel epoch = 1899-12-30
+    const ms = Math.round((v - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  // Format dd/mm/yyyy ou dd-mm-yyyy
+  const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (m) {
+    let [_, dd, mm, yy] = m;
+    if (yy.length === 2) yy = (parseInt(yy) > 30 ? "19" : "20") + yy;
+    return `${yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+  }
+  // Format yyyy-mm-dd déjà ok
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return s;
+};
 
 const findCol = (row: any, candidates: string[]): string => {
   const wanted = candidates.map(norm);
