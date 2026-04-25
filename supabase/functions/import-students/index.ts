@@ -15,6 +15,10 @@ type IncomingStudent = {
   matricule: string;
   nom: string;
   prenom: string;
+  dateNaissance?: string;
+  lieuNaissance?: string;
+  bac?: string;
+  etablissement?: string;
   s5?: Record<string, number>; // { matiereCode: note }
   s6?: Record<string, number>;
 };
