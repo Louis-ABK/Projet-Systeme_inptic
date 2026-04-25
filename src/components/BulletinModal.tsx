@@ -325,12 +325,6 @@ export const BulletinModal = ({
             </div>
           </div>
 
-          {/* Bandeau de bas de page : numéro et édition */}
-          <div className="mt-4 pt-2 border-t border-black flex justify-between text-[8.5px] text-gray-700 italic">
-            <span>Document N° {view.toUpperCase()}/{student.matricule}/{new Date().getFullYear()}</span>
-            <span>INPTIC · LP RT — Option ASUR</span>
-            <span>Édité le {today}</span>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
