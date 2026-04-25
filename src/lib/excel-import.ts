@@ -264,7 +264,7 @@ export const importStudentsFromExcel = async (
   const students: Student[] = [];
 
   allKeys.forEach((key) => {
-    const id = identityMap.get(key) || { nom: "", prenom: "" };
+    const id = identityMap.get(key) || ({ nom: "", prenom: "" } as Identity);
     const s5Row = s5Map.get(key);
     const s6Row = s6Map.get(key);
 
@@ -291,6 +291,10 @@ export const importStudentsFromExcel = async (
       matricule,
       nom: id.nom || s5Row?.nom || s6Row?.nom || "",
       prenom: id.prenom || s5Row?.prenom || s6Row?.prenom || "",
+      dateNaissance: id.dateNaissance || s5Row?.dateNaissance || s6Row?.dateNaissance || null,
+      lieuNaissance: id.lieuNaissance || s5Row?.lieuNaissance || s6Row?.lieuNaissance || null,
+      bac: id.bac || s5Row?.bac || s6Row?.bac || null,
+      etablissement: id.etablissement || s5Row?.etablissement || s6Row?.etablissement || null,
       s5: s5Full,
       s6: s6Full,
       moyenneGenerale,
