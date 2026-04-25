@@ -196,7 +196,7 @@ const Index = () => {
         </div>
 
         {mode === "entry" ? (
-          <GradeEntry onSaved={reload} />
+          <GradeEntry onSaved={reload} onGoToDashboard={() => setMode("consult")} />
         ) : (
           <>
             <Card className="p-4 shadow-card-soft border-border/60 bg-gradient-to-r from-primary/5 to-transparent">

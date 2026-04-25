@@ -84,9 +84,10 @@ const emptyIdentity: IdentityForm = {
 
 interface GradeEntryProps {
   onSaved?: () => void | Promise<void>;
+  onGoToDashboard?: () => void;
 }
 
-export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
+export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) => {
   const { toast } = useToast();
   const [identity, setIdentity] = useState<IdentityForm>(emptyIdentity);
   const [sem, setSem] = useState<Sem>("s5");
@@ -310,12 +311,12 @@ export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
       if (resp?.error) throw new Error(resp.error);
 
       toast({
-        title: "Notes enregistrées",
-        description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}.`,
+        title: "✓ Notes enregistrées",
+        description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}. L'étudiant apparaît dans le Tableau de bord.`,
       });
       if (resp?.errors?.length) console.warn("[save-grades]", resp.errors);
-      // Recharge le tableau de bord parent pour refléter la saisie
       try { await onSaved?.(); } catch (e) { console.warn("[onSaved]", e); }
+      setTimeout(() => onGoToDashboard?.(), 800);
     } catch (err: any) {
       toast({
         title: "Erreur d'enregistrement",
@@ -382,7 +383,7 @@ export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
             · mot de passe = identifiant
           </p>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
           <div>
             <Label className="text-xs">Date de naissance</Label>
             <Input
@@ -398,24 +399,6 @@ export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
               placeholder="Ex. Libreville"
               value={identity.lieuNaissance}
               onChange={(e) => setIdentity({ ...identity, lieuNaissance: e.target.value })}
-              className="h-10"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Type de baccalauréat</Label>
-            <Input
-              placeholder="Ex. Bac C / D / Tech"
-              value={identity.bac}
-              onChange={(e) => setIdentity({ ...identity, bac: e.target.value })}
-              className="h-10"
-            />
-          </div>
-          <div className="md:col-span-3">
-            <Label className="text-xs">Établissement d'origine</Label>
-            <Input
-              placeholder="Ex. Lycée National Léon MBA"
-              value={identity.etablissement}
-              onChange={(e) => setIdentity({ ...identity, etablissement: e.target.value })}
               className="h-10"
             />
           </div>
