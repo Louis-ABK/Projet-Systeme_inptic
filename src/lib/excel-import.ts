@@ -235,9 +235,15 @@ export const importStudentsFromExcel = async (
         const key = r.matricule || `${norm(r.nom)}_${norm(r.prenom)}`;
         if (!key) return;
         target.set(key, r);
-        if (r.nom || r.prenom) {
-          identityMap.set(key, { nom: r.nom, prenom: r.prenom });
-        }
+        const prev = identityMap.get(key) || { nom: "", prenom: "" };
+        identityMap.set(key, {
+          nom: prev.nom || r.nom || "",
+          prenom: prev.prenom || r.prenom || "",
+          dateNaissance: prev.dateNaissance || r.dateNaissance,
+          lieuNaissance: prev.lieuNaissance || r.lieuNaissance,
+          bac: prev.bac || r.bac,
+          etablissement: prev.etablissement || r.etablissement,
+        });
         added++;
       });
       if (added > 0) {
