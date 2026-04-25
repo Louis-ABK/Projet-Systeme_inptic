@@ -382,7 +382,7 @@ export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
             · mot de passe = identifiant
           </p>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
           <div>
             <Label className="text-xs">Date de naissance</Label>
             <Input
@@ -398,24 +398,6 @@ export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
               placeholder="Ex. Libreville"
               value={identity.lieuNaissance}
               onChange={(e) => setIdentity({ ...identity, lieuNaissance: e.target.value })}
-              className="h-10"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Type de baccalauréat</Label>
-            <Input
-              placeholder="Ex. Bac C / D / Tech"
-              value={identity.bac}
-              onChange={(e) => setIdentity({ ...identity, bac: e.target.value })}
-              className="h-10"
-            />
-          </div>
-          <div className="md:col-span-3">
-            <Label className="text-xs">Établissement d'origine</Label>
-            <Input
-              placeholder="Ex. Lycée National Léon MBA"
-              value={identity.etablissement}
-              onChange={(e) => setIdentity({ ...identity, etablissement: e.target.value })}
               className="h-10"
             />
           </div>

@@ -247,30 +247,6 @@ export const BulletinModal = ({
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1.5 bg-[#f0f0f0]">
-                  Type de baccalauréat
-                </td>
-                <td className="border border-black px-2 py-1.5">
-                  {identity.bac || (
-                    <span className="italic text-gray-500">
-                      ………………………………………………………
-                    </span>
-                  )}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-black px-2 py-1.5 bg-[#f0f0f0]">
-                  Établissement d'origine
-                </td>
-                <td className="border border-black px-2 py-1.5">
-                  {identity.etablissement || (
-                    <span className="italic text-gray-500">
-                      ………………………………………………………
-                    </span>
-                  )}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-black px-2 py-1.5 bg-[#f0f0f0]">
                   Numéro étudiant (matricule)
                 </td>
                 <td className="border border-black px-2 py-1.5 font-mono">
