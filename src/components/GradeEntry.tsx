@@ -314,6 +314,8 @@ export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
         description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}.`,
       });
       if (resp?.errors?.length) console.warn("[save-grades]", resp.errors);
+      // Recharge le tableau de bord parent pour refléter la saisie
+      try { await onSaved?.(); } catch (e) { console.warn("[onSaved]", e); }
     } catch (err: any) {
       toast({
         title: "Erreur d'enregistrement",
