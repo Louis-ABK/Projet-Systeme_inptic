@@ -82,7 +82,11 @@ const emptyIdentity: IdentityForm = {
   etablissement: "",
 };
 
-export const GradeEntry = () => {
+interface GradeEntryProps {
+  onSaved?: () => void | Promise<void>;
+}
+
+export const GradeEntry = ({ onSaved }: GradeEntryProps = {}) => {
   const { toast } = useToast();
   const [identity, setIdentity] = useState<IdentityForm>(emptyIdentity);
   const [sem, setSem] = useState<Sem>("s5");
