@@ -152,7 +152,7 @@ const Login = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="admin" className="mt-5">
+            {/* <TabsContent value="admin" className="mt-5">
               <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
                 <div className="flex items-start gap-2">
                   <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
@@ -166,7 +166,7 @@ const Login = () => {
                   </div>
                 </div>
               </div>
-            </TabsContent>
+            </TabsContent> */}
           </Tabs>
         </Card>
 
