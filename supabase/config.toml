@@ -1,4 +1,4 @@
-project_id = "htieromytwazmqmhxnpc"
+project_id = "zybrknbvvrntzaxzoucf"
 
 [functions.import-students]
 verify_jwt = true

@@ -25,7 +25,7 @@ const Login = () => {
 
   // Bootstrap admin au premier chargement (idempotent)
   useEffect(() => {
-    supabase.functions.invoke("bootstrap-admin").catch(() => {});
+    supabase.functions.invoke("bootstrap-admin").catch(console.error);
   }, []);
 
   if (authLoading) {
