@@ -32,6 +32,28 @@ export const getMention = (moy: number): string => {
   return 'Insuffisant';
 };
 
+/** Note éliminatoire : toute moyenne de matière <= 5/20 bloque la compensation */
+export const ELIMINATORY_THRESHOLD = 5;
+
+/** Vérifie si une UE contient au moins une note éliminatoire (<= 5) */
+export const hasEliminatoryInUE = (
+  grades: Record<string, number>,
+  subjects: readonly { key: string }[]
+): boolean => subjects.some((s) => {
+  const v = grades[s.key];
+  return typeof v === 'number' && v > 0 && v <= ELIMINATORY_THRESHOLD;
+});
+
+/** Vérifie si un semestre contient au moins une note éliminatoire */
+export const hasEliminatoryInSemester = (
+  student: Student,
+  sem: 's5' | 's6'
+): boolean => {
+  const subjects = getSubjects(student.classeKey, sem);
+  const grades = sem === 's5' ? student.s5 : student.s6;
+  return hasEliminatoryInUE(grades, subjects);
+};
+
 export const getDecision = (
   moyGen: number,
   s5: number,
@@ -39,6 +61,13 @@ export const getDecision = (
   student?: Student
 ): { label: string; type: 'admis' | 'compensation' | 'reprise' | 'refuse' } => {
   if (student) {
+    // Règle éliminatoire : note <= 5 dans n'importe quelle matière → recalé d'office
+    const elimS5 = hasEliminatoryInSemester(student, 's5');
+    const elimS6 = hasEliminatoryInSemester(student, 's6');
+    if (elimS5 || elimS6) {
+      return { label: 'Recalé(e) — note éliminatoire (≤5/20)', type: 'refuse' };
+    }
+
     const credS5 = getCredits(student, 's5');
     const credS6 = getCredits(student, 's6');
     
@@ -87,8 +116,10 @@ export const getCredits = (s: Student, sem: 's5' | 's6'): number => {
     const sum = ueSubjects.reduce((a, b) => a + (grades[b.key] || 0) * b.coef, 0);
     const moyUE = totalCoef ? sum / totalCoef : 0;
 
-    // UE acquise si moyenne UE >= 10, ou par compensation si moyenne semestre >= 10
-    if (moyUE >= 10 || moyemSem >= 10) {
+    // Note éliminatoire dans l'UE → pas de compensation possible pour cette UE
+    const hasElim = hasEliminatoryInUE(grades, ueSubjects);
+    // UE acquise si moyUE >= 10, ou par compensation si moy semestre >= 10 ET pas de note élim dans l'UE
+    if (moyUE >= 10 || (moyemSem >= 10 && !hasElim)) {
       credits += ueSubjects.reduce((a, b) => a + b.credits, 0);
     }
   }

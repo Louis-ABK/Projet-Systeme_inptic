@@ -4,6 +4,8 @@ import {
   getMention,
   getCreditsS5,
   getCreditsS6,
+  hasEliminatoryInUE,
+  ELIMINATORY_THRESHOLD,
 } from "@/data/students";
 import { getSubjects, ClasseKey, getSemesterLabels } from "@/data/referentiel";
 import logo from "@/assets/logo-inptic.jpg";
@@ -76,15 +78,17 @@ const SemesterBulletin = ({
     const totalC = subs.reduce((a, b) => a + b.credits, 0);
     const m = ueMoy(ue);
     const semMoy = grades.moyenne || 0;
-    // UE acquise si moyUE >= 10 ; compensée si moy < 10 mais semestre >= 10
+    // Note éliminatoire dans l'UE → pas de compensation
+    const hasElim = hasEliminatoryInUE(grades as Record<string, number>, subs);
     const ueAcquise = m >= 10;
-    const ueCompensee = !ueAcquise && semMoy >= 10;
+    const ueCompensee = !ueAcquise && semMoy >= 10 && !hasElim;
     return {
       name: ue,
       total: totalC,
       acquired: (ueAcquise || ueCompensee) ? totalC : creditsForUE(ue),
       ueAcquise,
       ueCompensee,
+      hasElim,
     };
   });
   const totalCreditsAcquired = ueData.reduce((a, u) => a + u.acquired, 0);
@@ -245,6 +249,8 @@ const SemesterBulletin = ({
                   ? "UE Acquise"
                   : u.ueCompensee
                   ? "UE Acquise par Compensation"
+                  : u.hasElim
+                  ? "UE non Acquise (Élim.)"
                   : "UE non Acquise"}
               </td>
             ))}
