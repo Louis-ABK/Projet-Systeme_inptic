@@ -7,14 +7,18 @@ import { FileText } from "lucide-react";
 import { Card } from "./ui/card";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
+import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 
 interface Props {
   students: Student[];
   view: "s5" | "s6" | "annuel";
   onShowBulletin: (s: Student) => void;
+  onEdit?: (s: Student) => void;
+  onDelete?: (s: Student) => void;
 }
 
-export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
+export const GradesTable = ({ students, view, onShowBulletin, onEdit, onDelete }: Props) => {
   const { classeKey } = useClasse();
 
   const subjectsS5 = useMemo(() => getSubjects(classeKey, "s5"), [classeKey]);
@@ -36,6 +40,7 @@ export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
                 <th className="text-center px-3 py-3 font-semibold">Mention</th>
                 <th className="text-center px-3 py-3 font-semibold">Décision du Jury</th>
                 <th className="text-center px-3 py-3 font-semibold">Bulletin</th>
+                <th className="text-center px-3 py-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -70,9 +75,26 @@ export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
                       </span>
                     </td>
                     <td className="text-center px-3 py-2.5">
-                      <Button size="sm" variant="outline" onClick={() => onShowBulletin(s)} className="h-8">
-                        <FileText className="h-3.5 w-3.5 mr-1" /> Voir
+                      <Button variant="ghost" size="sm" onClick={() => onShowBulletin(s)} className="h-8 hover:bg-primary/10 text-primary">
+                        <FileText className="h-4 w-4" />
                       </Button>
+                    </td>
+                    <td className="text-center px-3 py-2.5">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10">
+                            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEdit?.(s)} className="cursor-pointer">
+                            <Edit className="h-4 w-4 mr-2" /> Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDelete?.(s)} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 );
@@ -102,6 +124,7 @@ export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
               ))}
               <th className="text-center px-3 py-3 font-bold bg-primary-dark">{moyKey}</th>
               <th className="text-center px-3 py-3 font-semibold">Bulletin</th>
+              <th className="text-center px-3 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -128,10 +151,27 @@ export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
                       {moy.toFixed(2)}
                     </span>
                   </td>
-                  <td className="text-center px-2 py-2.5">
-                    <Button size="sm" variant="outline" onClick={() => onShowBulletin(s)} className="h-7 text-xs">
-                      <FileText className="h-3 w-3 mr-1" /> Voir
+                  <td className="text-center px-3 py-2.5">
+                    <Button variant="ghost" size="sm" onClick={() => onShowBulletin(s)} className="h-8 hover:bg-primary/10 text-primary">
+                      <FileText className="h-4 w-4" />
                     </Button>
+                  </td>
+                  <td className="text-center px-3 py-2.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10">
+                          <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit?.(s)} className="cursor-pointer">
+                          <Edit className="h-4 w-4 mr-2" /> Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDelete?.(s)} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                          <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               );

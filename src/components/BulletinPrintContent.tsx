@@ -5,7 +5,7 @@ import {
   getCreditsS5,
   getCreditsS6,
 } from "@/data/students";
-import { getSubjects, ClasseKey } from "@/data/referentiel";
+import { getSubjects, ClasseKey, getSemesterLabels } from "@/data/referentiel";
 import logo from "@/assets/logo-inptic.jpg";
 import { cn } from "@/lib/utils";
 import React, { useMemo } from "react";
@@ -92,16 +92,20 @@ const SemesterBulletin = ({
     "UE6-2": "UE6-2 : Télécommunications et Réseaux",
   };
 
+  const niveau = student.classeKey?.split('-')[1];
+  const [labelS5, labelS6] = getSemesterLabels(niveau);
+  const semLabel = sem === "s5" ? labelS5 : labelS6;
+
   return (
     <>
-      <table className="w-full text-[11px] border-collapse mb-3">
+      <table className="w-full text-[9px] leading-[11px] border-collapse mb-1">
         <thead>
           <tr className="bg-[#e8e8e8]">
-            <th className="border border-black px-2 py-1.5 text-left font-bold w-[42%]"></th>
-            <th className="border border-black px-1 py-1.5 font-bold w-[10%]">Crédits</th>
-            <th className="border border-black px-1 py-1.5 font-bold w-[12%]">Coefficients</th>
-            <th className="border border-black px-1 py-1.5 font-bold w-[18%]">Notes de l'étudiant</th>
-            <th className="border border-black px-1 py-1.5 font-bold w-[18%]">Moyenne de classe</th>
+            <th className="border border-black px-1.5 py-0 text-left font-bold w-[42%]"></th>
+            <th className="border border-black px-1 py-0 font-bold w-[10%]">Crédits</th>
+            <th className="border border-black px-1 py-0 font-bold w-[12%]">Coefficients</th>
+            <th className="border border-black px-1 py-0 font-bold w-[18%]">Notes de l'étudiant</th>
+            <th className="border border-black px-1 py-0 font-bold w-[18%]">Moyenne de classe</th>
           </tr>
         </thead>
         <tbody>
@@ -135,15 +139,15 @@ const SemesterBulletin = ({
                   );
                 })}
                 <tr className="bg-[#f5f5f5]">
-                  <td className="border border-black px-2 py-1 font-bold">Moyenne {ue}</td>
-                  <td className="border border-black px-1 py-1 text-center font-bold">{totalCredits}</td>
-                  <td className="border border-black px-1 py-1 text-center font-bold">
+                  <td className="border border-black px-1.5 py-0 font-bold">Moyenne {ue}</td>
+                  <td className="border border-black px-1 py-0 text-center font-bold">{totalCredits}</td>
+                  <td className="border border-black px-1 py-0 text-center font-bold">
                     {totalCoef.toFixed(2).replace(".", ",")}
                   </td>
-                  <td className="border border-black px-1 py-1 text-center">
+                  <td className="border border-black px-1 py-0 text-center">
                     <Note v={ueMoy(ue)} bold />
                   </td>
-                  <td className="border border-black px-1 py-1 text-center">
+                  <td className="border border-black px-1 py-0 text-center">
                     <Note v={ueClassMoy(ue)} bold />
                   </td>
                 </tr>
@@ -151,60 +155,60 @@ const SemesterBulletin = ({
             );
           })}
           <tr>
-            <td className="border border-black px-2 py-1 text-right font-semibold" colSpan={2}>
+            <td className="border border-black px-1.5 py-0 text-right font-semibold" colSpan={2}>
               Total coefficients
             </td>
-            <td className="border border-black px-1 py-1 text-center font-bold">
+            <td className="border border-black px-1 py-0 text-center font-bold">
               {totalCoefAll.toFixed(2).replace(".", ",")}
             </td>
-            <td className="border border-black px-1 py-1"></td>
-            <td className="border border-black px-1 py-1"></td>
+            <td className="border border-black px-1 py-0"></td>
+            <td className="border border-black px-1 py-0"></td>
           </tr>
           <tr>
-            <td className="border border-black px-2 py-1" colSpan={2}>
+            <td className="border border-black px-1.5 py-0" colSpan={2}>
               Pénalités d'absences
             </td>
-            <td className="border border-black px-1 py-1 text-center bg-[#fff3cd]">0,01/heure</td>
-            <td className="border border-black px-1 py-1 text-center">0 heure(s)</td>
-            <td className="border border-black px-1 py-1"></td>
+            <td className="border border-black px-1 py-0 text-center bg-[#fff3cd]">0,01/heure</td>
+            <td className="border border-black px-1 py-0 text-center">0 heure(s)</td>
+            <td className="border border-black px-1 py-0"></td>
           </tr>
           <tr className="bg-[#fff3cd]">
-            <td className="border border-black px-2 py-1.5 text-center font-bold uppercase" colSpan={3}>
-              Moyenne Semestre {sem === "s5" ? "5" : "6"}
+            <td className="border border-black px-1.5 py-0 text-center font-bold uppercase" colSpan={3}>
+              Moyenne {semLabel}
             </td>
-            <td className="border border-black px-1 py-1.5 text-center text-[13px]">
+            <td className="border border-black px-1 py-0 text-center text-[10px]">
               <Note v={grades.moyenne || 0} bold />
             </td>
-            <td className="border border-black px-1 py-1.5 text-center text-[13px]">
+            <td className="border border-black px-1 py-0 text-center text-[10px]">
               <Note v={classMoy || 0} bold />
             </td>
           </tr>
         </tbody>
       </table>
 
-      <table className="w-full text-[11px] border-collapse mb-3">
+      <table className="w-full text-[9px] leading-[11px] border-collapse mb-1">
         <tbody>
           <tr className="bg-[#e8e8e8]">
             <th className="border border-black px-2 py-1 font-bold w-1/2">
-              Rang de l'étudiant au Semestre
+              Rang de l'étudiant au {semLabel}
             </th>
             <th className="border border-black px-2 py-1 font-bold w-1/2">Mention</th>
           </tr>
           <tr>
-            <td className="border border-black px-2 py-1.5 text-center">
+            <td className="border border-black px-1.5 py-0 text-center">
               {rank}
               <sup>ème</sup> / {totalStudents}
             </td>
-            <td className="border border-black px-2 py-1.5 text-center font-semibold">{mention}</td>
+            <td className="border border-black px-1.5 py-0 text-center font-semibold">{mention}</td>
           </tr>
         </tbody>
       </table>
 
-      <table className="w-full text-[11px] border-collapse mb-3">
+      <table className="w-full text-[9px] leading-[11px] border-collapse mb-1">
         <thead>
           <tr className="bg-[#d6e4f0]">
             <th colSpan={ueData.length + 1} className="border border-black px-2 py-1.5 font-bold">
-              État de la Validation des Crédits au Semestre {sem === "s5" ? "5" : "6"}
+              État de la Validation des Crédits au {semLabel}
             </th>
           </tr>
           <tr className="bg-[#e8e8e8]">
@@ -214,24 +218,24 @@ const SemesterBulletin = ({
               </th>
             ))}
             <th className="border border-black px-2 py-1 font-bold">
-              Crédits validés au Semestre {sem === "s5" ? "5" : "6"}
+              Crédits validés au {semLabel}
             </th>
           </tr>
         </thead>
         <tbody>
           <tr>
             {ueData.map((u) => (
-              <td key={u.name} className="border border-black px-2 py-1.5 text-center font-semibold">
+              <td key={u.name} className="border border-black px-1.5 py-0 text-center font-semibold">
                 {u.acquired} Crédits / {u.total}
               </td>
             ))}
-            <td className="border border-black px-2 py-1.5 text-center font-bold">
+            <td className="border border-black px-1.5 py-0 text-center font-bold">
               {totalCreditsAcquired} Crédits / {totalCreditsMax}
             </td>
           </tr>
           <tr>
             {ueData.map((u) => (
-              <td key={u.name} className="border border-black px-2 py-1 text-center text-[10px] italic">
+              <td key={u.name} className="border border-black px-1.5 py-0 text-center text-[8.5px] italic">
                 {u.acquired === u.total
                   ? "UE Acquise"
                   : u.compensation
@@ -239,7 +243,7 @@ const SemesterBulletin = ({
                   : "UE non Acquise"}
               </td>
             ))}
-            <td className="border border-black px-2 py-1 text-center text-[10px] italic font-semibold">
+            <td className="border border-black px-1.5 py-0 text-center text-[8.5px] italic font-semibold">
               {grades.moyenne >= 10
                 ? totalCreditsAcquired === totalCreditsMax
                   ? "Semestre Acquis"
@@ -250,12 +254,12 @@ const SemesterBulletin = ({
         </tbody>
       </table>
 
-      <p className="text-[12px] mt-3 font-serif">
+      <p className="text-[11px] mt-1 font-serif">
         <strong>Décision du Jury : </strong>
         <strong className="underline text-black">
           {grades.moyenne >= 10
-            ? `Semestre ${sem === "s5" ? "5" : "6"} validé`
-            : `Semestre ${sem === "s5" ? "5" : "6"} non validé`}
+            ? `${semLabel} validé`
+            : `${semLabel} non validé`}
         </strong>
       </p>
     </>
@@ -270,9 +274,12 @@ const AnnualBulletin = ({ student, rank, classData }: { student: Student; rank: 
   const credits = credS5 + credS6;
   const mention = getMention(student.moyenneGenerale);
 
+  const niveau = student.classeKey?.split('-')[1];
+  const [labelS5, labelS6] = getSemesterLabels(niveau);
+
   return (
     <>
-      <table className="w-full text-[11px] border-collapse mb-3">
+      <table className="w-full text-[10.5px] border-collapse mb-1.5">
         <thead>
           <tr className="bg-[#e8e8e8]">
             <th className="border border-black px-2 py-1.5 text-left font-bold w-[40%]">Période</th>
@@ -284,7 +291,7 @@ const AnnualBulletin = ({ student, rank, classData }: { student: Student; rank: 
         </thead>
         <tbody>
           <tr>
-            <td className="border border-black px-2 py-1.5 font-semibold">Semestre 5</td>
+            <td className="border border-black px-2 py-1.5 font-semibold">{labelS5}</td>
             <td className="border border-black px-1 py-1.5 text-center">1,00</td>
             <td className="border border-black px-1 py-1.5 text-center">
               <Note v={student.s5.moyenne || 0} />
@@ -295,7 +302,7 @@ const AnnualBulletin = ({ student, rank, classData }: { student: Student; rank: 
             </td>
           </tr>
           <tr>
-            <td className="border border-black px-2 py-1.5 font-semibold">Semestre 6</td>
+            <td className="border border-black px-2 py-1.5 font-semibold">{labelS6}</td>
             <td className="border border-black px-1 py-1.5 text-center">1,00</td>
             <td className="border border-black px-1 py-1.5 text-center">
               <Note v={student.s6.moyenne || 0} />
@@ -347,8 +354,8 @@ const AnnualBulletin = ({ student, rank, classData }: { student: Student; rank: 
             </th>
           </tr>
           <tr className="bg-[#e8e8e8]">
-            <th className="border border-black px-2 py-1 font-bold">Crédits Semestre 5</th>
-            <th className="border border-black px-2 py-1 font-bold">Crédits Semestre 6</th>
+            <th className="border border-black px-2 py-1 font-bold">Crédits {labelS5}</th>
+            <th className="border border-black px-2 py-1 font-bold">Crédits {labelS6}</th>
             <th className="border border-black px-2 py-1 font-bold">Crédits Acquis sur l'Année</th>
           </tr>
         </thead>
@@ -431,16 +438,19 @@ export const BulletinPrintContent = ({ student, view, students }: Props) => {
     return sorted.findIndex((s) => s.matricule === student.matricule) + 1;
   }, [student, view, students]);
 
+  const niveau = student?.classeKey?.split('-')[1];
+  const [labelS5, labelS6] = getSemesterLabels(niveau);
+
   const titleLabel =
     view === "s5"
-      ? "Bulletin de notes du Semestre 5"
+      ? `Bulletin de notes du ${labelS5}`
       : view === "s6"
-      ? "Bulletin de Notes du Semestre 6"
+      ? `Bulletin de notes du ${labelS6}`
       : "Bulletin de notes Annuel";
 
   return (
     <div
-      className="print-area bg-white text-black px-10 py-8"
+      className="print-area bg-white text-black px-6 py-0"
       style={{ fontFamily: "'Times New Roman', Times, serif" }}
     >
       {/* En-tête tripartite officiel */}
@@ -456,7 +466,7 @@ export const BulletinPrintContent = ({ student, view, students }: Props) => {
           <p className="text-[9px] italic">B.P. 2241 — Libreville</p>
         </div>
         <div className="flex flex-col items-center">
-          <img src={logo} alt="INPTIC" className="h-[92px] w-[92px] object-contain" />
+          <img src={logo} alt="INPTIC" className="h-[48px] w-[48px] object-contain" />
         </div>
         <div className="text-[10px] leading-tight text-center">
           <p className="font-bold uppercase">République Gabonaise</p>
@@ -466,23 +476,23 @@ export const BulletinPrintContent = ({ student, view, students }: Props) => {
       </div>
 
       {/* Titre */}
-      <div className="text-center my-4">
-        <h1 className="text-[19px] font-bold uppercase tracking-wide">
+      <div className="text-center my-1.5">
+        <h1 className="text-[17px] font-bold uppercase tracking-wide">
           {titleLabel}
         </h1>
-        <div className="mx-auto mt-1 w-56 border-t border-black" />
-        <p className="text-[12px] mt-2">
+        <div className="mx-auto mt-0.5 w-56 border-t border-black" />
+        <p className="text-[11px] mt-1">
           Année universitaire : <strong>2025 — 2026</strong>
         </p>
       </div>
 
       {/* Classe */}
-      <p className="text-[12px] mb-3">
+      <p className="text-[11px] mb-1.5">
         <strong>Classe :</strong> {student.classeKey || "Non assignée"}
       </p>
 
       {/* Identité étudiant */}
-      <table className="w-full text-[12px] mb-4 border-collapse">
+      <table className="w-full text-[11px] mb-1.5 border-collapse leading-[13px]">
         <tbody>
           <tr>
             <td className="border border-black px-2 py-1.5 font-bold w-[35%] bg-[#f0f0f0]">
@@ -528,7 +538,7 @@ export const BulletinPrintContent = ({ student, view, students }: Props) => {
       {view === "annuel" && <AnnualBulletin student={student} rank={rank} classData={classData} />}
 
       {/* Statistiques de la promotion */}
-      <table className="w-full text-[10.5px] border-collapse mt-3 mb-2">
+      <table className="w-full text-[9px] leading-[11px] border-collapse mt-1.5 mb-1">
         <thead>
           <tr className="bg-[#e8e8e8]">
             <th className="border border-black px-2 py-1 font-bold" colSpan={4}>
@@ -573,8 +583,8 @@ export const BulletinPrintContent = ({ student, view, students }: Props) => {
       </table>
 
       {/* Pied de page officiel — signature + cachet */}
-      <div className="mt-5 grid grid-cols-2 gap-6">
-        <div className="text-[10px] italic leading-snug pt-2">
+      <div className="mt-1.5 grid grid-cols-2 gap-6">
+        <div className="text-[8.5px] italic leading-[10px]">
           <p className="font-semibold not-italic mb-1">Mentions légales :</p>
           Il ne sera délivré qu'un seul et unique exemplaire de bulletin de notes.
           L'étudiant est donc prié d'en faire plusieurs copies légalisées. Ce document

@@ -32,6 +32,22 @@ export const FILIERES_MAP: Record<string, { libelle: string; dept: string }> = {
 };
 
 // ==========================================
+// UTILITAIRES DE SEMESTRES
+// ==========================================
+
+export const getSemesterLabels = (niveau?: string | null): [string, string] => {
+  if (niveau === 'L1') return ['Semestre 1', 'Semestre 2'];
+  if (niveau === 'L2') return ['Semestre 3', 'Semestre 4'];
+  return ['Semestre 5', 'Semestre 6'];
+};
+
+export const getSemesterShortLabels = (niveau?: string | null): [string, string] => {
+  if (niveau === 'L1') return ['S1', 'S2'];
+  if (niveau === 'L2') return ['S3', 'S4'];
+  return ['S5', 'S6'];
+};
+
+// ==========================================
 // RÉFÉRENTIELS DE MATIÈRES
 // ==========================================
 

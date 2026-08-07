@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { Student } from "@/data/students";
-import { getSubjects, ClasseKey } from "@/data/referentiel";
+import { getSubjects, ClasseKey, getSemesterLabels } from "@/data/referentiel";
 
 export type ImportResult = {
   students: Student[];
@@ -169,6 +169,20 @@ const parseSheet = (
 /** Détermine si une feuille est S5 ou S6 par son nom + contenu */
 const detectSemester = (name: string, ws: XLSX.WorkSheet, classeKey?: ClasseKey | null): "s5" | "s6" | null => {
   const n = norm(name);
+  const niveau = classeKey?.split('-')[1];
+
+  if (niveau === 'L1') {
+    if (/(s1|sem.*1|semestre1)/.test(n)) return "s5";
+    if (/(s2|sem.*2|semestre2)/.test(n)) return "s6";
+  } else if (niveau === 'L2') {
+    if (/(s3|sem.*3|semestre3)/.test(n)) return "s5";
+    if (/(s4|sem.*4|semestre4)/.test(n)) return "s6";
+  } else {
+    if (/(s5|sem.*5|semestre5)/.test(n)) return "s5";
+    if (/(s6|sem.*6|semestre6)/.test(n)) return "s6";
+  }
+  
+  // Fallback heuristique si le nom ne correspond à rien, on teste le contenu
   if (/(s5|sem.*5|semestre5)/.test(n)) return "s5";
   if (/(s6|sem.*6|semestre6)/.test(n)) return "s6";
   
@@ -205,6 +219,9 @@ export const importStudentsFromExcel = async (
     etablissement?: string;
   };
   const identityMap = new Map<string, Identity>();
+
+  const niveau = classeKey?.split('-')[1];
+  const [labelS5, labelS6] = getSemesterLabels(niveau);
 
   const s5Subjects = getSubjects(classeKey, "s5");
   const s6Subjects = getSubjects(classeKey, "s6");
@@ -247,8 +264,8 @@ export const importStudentsFromExcel = async (
     }
   }
 
-  if (s5Map.size === 0) warnings.push("Aucune donnée Semestre 5 trouvée.");
-  if (s6Map.size === 0) warnings.push("Aucune donnée Semestre 6 trouvée.");
+  if (s5Map.size === 0) warnings.push(`Aucune donnée ${labelS5} trouvée.`);
+  if (s6Map.size === 0) warnings.push(`Aucune donnée ${labelS6} trouvée.`);
 
   // Fusion : union des matricules
   const allKeys = new Set<string>([...s5Map.keys(), ...s6Map.keys()]);
@@ -293,8 +310,8 @@ export const importStudentsFromExcel = async (
       moyenneGenerale,
     });
 
-    if (!s5Row) warnings.push(`${matricule} : pas de notes S5 (mises à 0).`);
-    if (!s6Row) warnings.push(`${matricule} : pas de notes S6 (mises à 0).`);
+    if (!s5Row) warnings.push(`${matricule} : pas de notes ${labelS5} (mises à 0).`);
+    if (!s6Row) warnings.push(`${matricule} : pas de notes ${labelS6} (mises à 0).`);
   });
 
   students.sort((a, b) => a.matricule.localeCompare(b.matricule));

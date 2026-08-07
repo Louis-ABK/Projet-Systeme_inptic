@@ -1,8 +1,8 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { GradesTable } from "@/components/GradesTable";
 import { BulletinModal } from "@/components/BulletinModal";
-import { GradeEntry } from "@/components/GradeEntry";
+import { StudentDialog } from "@/components/StudentDialog";
 import { Student } from "@/data/students";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Search, ClipboardList, Table2, Upload, RotateCcw, Loader2,
-  FileArchive, Trash2, AlertTriangle, Printer
+  FileArchive, Trash2, AlertTriangle, Printer, ChevronDown, UserPlus
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { importStudentsFromExcel } from "@/lib/excel-import";
 import { useStudents } from "@/hooks/use-students";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +26,7 @@ import JSZip from "jszip";
 import { generateBulletinPDF } from "@/lib/pdf-export";
 import { BulletinPrintContent } from "@/components/BulletinPrintContent";
 import { useClasse } from "@/contexts/ClasseContext";
-import { FILIERES_MAP } from "@/data/referentiel";
+import { FILIERES_MAP, getSemesterLabels } from "@/data/referentiel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,12 +39,10 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type View = "s5" | "s6" | "annuel";
-type Mode = "consult" | "entry";
 
 const Index = () => {
   const { toast } = useToast();
   const { classeKey, filiere, niveau } = useClasse();
-  const [mode, setMode] = useState<Mode>("consult");
   const [view, setView] = useState<View>("annuel");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Student | null>(null);
@@ -48,16 +52,24 @@ const Index = () => {
   const [exportingZip, setExportingZip] = useState(false);
   const [exportingActive, setExportingActive] = useState(false);
   const [printingAll, setPrintingAll] = useState(false);
+  const [printMode, setPrintMode] = useState<"all" | "s5" | "s6" | "annuel">("annuel");
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  // Student CRUD states
+  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | undefined>(undefined);
+  const [studentToDelete, setStudentToDelete] = useState<Student | undefined>(undefined);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { students, loading, reload } = useStudents(classeKey);
+  const [labelS5, labelS6] = getSemesterLabels(niveau);
 
   const classeLabel = classeKey
     ? `${filiere ? FILIERES_MAP[filiere]?.libelle : filiere} ${niveau}`
     : "toutes classes";
 
-  const handleExportZip = async () => {
+  const handleExportZip = async (exportMode: "all" | "s5" | "s6" | "annuel" = "all") => {
     if (students.length === 0) return;
     setExportingZip(true);
     setExportingActive(true);
@@ -66,7 +78,7 @@ const Index = () => {
     try {
       toast({
         title: "Exportation en cours…",
-        description: "Préparation et rendu initial de tous les bulletins.",
+        description: "Préparation et rendu des bulletins sélectionnés.",
       });
 
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -79,26 +91,29 @@ const Index = () => {
 
         await Promise.all(
           batch.map(async (student) => {
-            // Semestre 5
-            const s5El = document.getElementById(`export-s5-${student.matricule}`);
-            if (s5El) {
-              const pdf = await generateBulletinPDF(s5El);
-              const pdfBlob = pdf.output("blob");
-              zip.folder("Semestre 5")?.file(`${student.nom} ${student.prenom}.pdf`, pdfBlob);
+            if (exportMode === "all" || exportMode === "s5") {
+              const s5El = document.getElementById(`export-s5-${student.matricule}`);
+              if (s5El) {
+                const pdf = await generateBulletinPDF(s5El);
+                const pdfBlob = pdf.output("blob");
+                zip.folder(labelS5)?.file(`${student.nom} ${student.prenom}.pdf`, pdfBlob);
+              }
             }
-            // Semestre 6
-            const s6El = document.getElementById(`export-s6-${student.matricule}`);
-            if (s6El) {
-              const pdf = await generateBulletinPDF(s6El);
-              const pdfBlob = pdf.output("blob");
-              zip.folder("Semestre 6")?.file(`${student.nom} ${student.prenom}.pdf`, pdfBlob);
+            if (exportMode === "all" || exportMode === "s6") {
+              const s6El = document.getElementById(`export-s6-${student.matricule}`);
+              if (s6El) {
+                const pdf = await generateBulletinPDF(s6El);
+                const pdfBlob = pdf.output("blob");
+                zip.folder(labelS6)?.file(`${student.nom} ${student.prenom}.pdf`, pdfBlob);
+              }
             }
-            // Bilan Annuel
-            const annuelEl = document.getElementById(`export-annuel-${student.matricule}`);
-            if (annuelEl) {
-              const pdf = await generateBulletinPDF(annuelEl);
-              const pdfBlob = pdf.output("blob");
-              zip.folder("Bilan Annuel")?.file(`${student.nom} ${student.prenom}.pdf`, pdfBlob);
+            if (exportMode === "all" || exportMode === "annuel") {
+              const annuelEl = document.getElementById(`export-annuel-${student.matricule}`);
+              if (annuelEl) {
+                const pdf = await generateBulletinPDF(annuelEl);
+                const pdfBlob = pdf.output("blob");
+                zip.folder("Bilan Annuel")?.file(`${student.nom} ${student.prenom}.pdf`, pdfBlob);
+              }
             }
           })
         );
@@ -133,7 +148,8 @@ const Index = () => {
     }
   };
 
-  const handlePrintAll = () => {
+  const handlePrintAll = (mode: "all" | "s5" | "s6" | "annuel" = "annuel") => {
+    setPrintMode(mode);
     setPrintingAll(true);
     toast({
       title: "Préparation de l'impression...",
@@ -142,7 +158,7 @@ const Index = () => {
     setTimeout(() => {
       window.print();
       setPrintingAll(false);
-    }, 1000); // Laisse le temps au DOM de rendre tous les bulletins
+    }, 1000);
   };
 
   const handleResetStudents = async () => {
@@ -157,7 +173,6 @@ const Index = () => {
 
     setResetting(true);
     try {
-      // Trouver l'ID de la classe
       const { data: classeData, error: classeErr } = await supabase
         .from("classes")
         .select("id")
@@ -169,8 +184,6 @@ const Index = () => {
       }
 
       const classeId = classeData.id;
-
-      // Récupérer les étudiants de cette classe
       const { data: etudiants, error: etErr } = await supabase
         .from("etudiants")
         .select("id")
@@ -181,11 +194,8 @@ const Index = () => {
       const etudiantIds = (etudiants ?? []).map((e: any) => e.id);
 
       if (etudiantIds.length > 0) {
-        // Supprimer les évaluations
         await supabase.from("evaluations").delete().in("etudiant_id", etudiantIds);
-        // Supprimer les absences
         await supabase.from("absences").delete().in("etudiant_id", etudiantIds);
-        // Supprimer les étudiants
         await supabase.from("etudiants").delete().in("id", etudiantIds);
       }
 
@@ -204,6 +214,32 @@ const Index = () => {
     } finally {
       setResetting(false);
       setShowResetDialog(false);
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke("delete-student", {
+        body: { matricule: studentToDelete.matricule },
+      });
+      if (error) throw new Error(error.message);
+      
+      toast({
+        title: "Suppression réussie",
+        description: `L'étudiant ${studentToDelete.nom} ${studentToDelete.prenom} a été supprimé.`,
+      });
+      reload();
+    } catch (err: any) {
+      toast({
+        title: "Erreur lors de la suppression",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setStudentToDelete(undefined);
     }
   };
 
@@ -247,7 +283,7 @@ const Index = () => {
         title: `Lecture des fichiers… (${files.length})`,
         description: files.map((f) => f.name).join(", "),
       });
-      const { students: parsed, warnings, info } = await importStudentsFromExcel(files);
+      const { students: parsed, warnings, info } = await importStudentsFromExcel(files, classeKey);
       if (parsed.length === 0) {
         toast({
           title: "Aucune donnée détectée",
@@ -320,10 +356,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <div className="print:hidden">
+        <AppHeader />
+      </div>
 
-      <main className="container mx-auto px-4 py-6 space-y-5 animate-fade-in">
-        {/* Avertissement si aucune classe */}
+      <main className="container mx-auto px-4 py-6 space-y-5 animate-fade-in print:hidden">
         {!classeKey && (
           <Card className="p-4 border-warning/50 bg-warning/5">
             <div className="flex items-center gap-2 text-sm text-warning">
@@ -336,27 +373,21 @@ const Index = () => {
           </Card>
         )}
 
-        {/* Sélecteur de mode */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
-            <TabsList className="h-11 bg-muted">
-              <TabsTrigger
-                value="consult"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold px-5"
+          <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="default"
+                onClick={() => {
+                  setSelectedStudent(undefined);
+                  setIsStudentDialogOpen(true);
+                }}
+                disabled={loading || importing || exportingZip}
+                className="bg-primary text-primary-foreground hover:bg-primary-dark shadow-sm"
+                title="Ajouter un étudiant manuellement"
               >
-                <Table2 className="h-4 w-4 mr-1.5" /> Tableau de bord
-              </TabsTrigger>
-              <TabsTrigger
-                value="entry"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold px-5"
-              >
-                <ClipboardList className="h-4 w-4 mr-1.5" /> Saisie des notes
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+                <UserPlus className="h-4 w-4 mr-1.5" /> Nouvel Étudiant
+              </Button>
 
-          {mode === "consult" && (
-            <div className="flex flex-wrap items-center gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -380,34 +411,68 @@ const Index = () => {
                 )}
                 Importer Excel
               </Button>
-              <Button
-                variant="outline"
-                onClick={handlePrintAll}
-                disabled={loading || importing || exportingZip || printingAll || students.length === 0}
-                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                title="Imprimer tous les bulletins (vue actuelle)"
-              >
-                {printingAll ? (
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                ) : (
-                  <Printer className="h-4 w-4 mr-1.5" />
-                )}
-                Tout imprimer
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleExportZip}
-                disabled={loading || importing || exportingZip || printingAll || students.length === 0}
-                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                title="Exporter tous les bulletins de la classe au format ZIP"
-              >
-                {exportingZip ? (
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                ) : (
-                  <FileArchive className="h-4 w-4 mr-1.5" />
-                )}
-                Exporter ZIP
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={loading || importing || exportingZip || printingAll || students.length === 0}
+                    className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    title="Imprimer les bulletins"
+                  >
+                    {printingAll ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <Printer className="h-4 w-4 mr-1.5" />
+                    )}
+                    Tout imprimer <ChevronDown className="h-4 w-4 ml-1.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => handlePrintAll("all")} className="font-medium cursor-pointer">
+                    Tout ({labelS5}, {labelS6}, Annuel)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrintAll("s5")} className="cursor-pointer">
+                    {labelS5} uniquement
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrintAll("s6")} className="cursor-pointer">
+                    {labelS6} uniquement
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrintAll("annuel")} className="cursor-pointer">
+                    Bilan Annuel uniquement
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={loading || importing || exportingZip || printingAll || students.length === 0}
+                    className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    title="Exporter les bulletins au format ZIP"
+                  >
+                    {exportingZip ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <FileArchive className="h-4 w-4 mr-1.5" />
+                    )}
+                    Exporter ZIP <ChevronDown className="h-4 w-4 ml-1.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => handleExportZip("all")} className="font-medium cursor-pointer">
+                    Tout ({labelS5}, {labelS6}, Annuel)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExportZip("s5")} className="cursor-pointer">
+                    {labelS5} uniquement
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExportZip("s6")} className="cursor-pointer">
+                    {labelS6} uniquement
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExportZip("annuel")} className="cursor-pointer">
+                    Bilan Annuel uniquement
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 onClick={() => setShowResetDialog(true)}
@@ -426,14 +491,9 @@ const Index = () => {
                 <RotateCcw className="h-4 w-4 mr-1.5" /> Actualiser
               </Button>
             </div>
-          )}
         </div>
 
-        {mode === "entry" ? (
-          <GradeEntry onSaved={reload} onGoToDashboard={() => setMode("consult")} />
-        ) : (
-          <>
-            <Card className="p-4 shadow-card-soft border-border/60 bg-gradient-to-r from-primary/5 to-transparent">
+        <Card className="p-4 shadow-card-soft border-border/60 bg-gradient-to-r from-primary/5 to-transparent">
               <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Classe :</span>{" "}
@@ -464,7 +524,7 @@ const Index = () => {
               </div>
             </Card>
 
-            <Card className="p-4 shadow-card-soft border-border/60">
+            <Card className="overflow-hidden shadow-elegant border-border/50">
               <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
                 <Tabs value={view} onValueChange={(v) => setView(v as View)} className="w-full lg:w-auto">
                   <TabsList className="grid grid-cols-3 lg:w-[440px] h-11 bg-muted">
@@ -472,13 +532,13 @@ const Index = () => {
                       value="s5"
                       className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold"
                     >
-                      Semestre 5
+                      {labelS5}
                     </TabsTrigger>
                     <TabsTrigger
                       value="s6"
                       className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold"
                     >
-                      Semestre 6
+                      {labelS6}
                     </TabsTrigger>
                     <TabsTrigger
                       value="annuel"
@@ -535,23 +595,38 @@ const Index = () => {
                 </p>
                 <Button
                   onClick={() => fileInputRef.current?.click()}
-                  className="bg-primary hover:bg-primary-dark"
+                  className="bg-primary hover:bg-primary-dark w-full sm:w-auto"
                 >
                   <Upload className="h-4 w-4 mr-1.5" /> Importer un fichier Excel
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedStudent(undefined);
+                    setIsStudentDialogOpen(true);
+                  }}
+                  className="w-full sm:w-auto mt-2 sm:mt-0 sm:ml-2"
+                >
+                  <UserPlus className="h-4 w-4 mr-1.5" /> Ajouter un étudiant
+                </Button>
               </Card>
             ) : (
-              <GradesTable students={filtered} view={view} onShowBulletin={showBulletin} />
+              <GradesTable 
+                students={filtered} 
+                view={view} 
+                onShowBulletin={showBulletin} 
+                onEdit={(student) => {
+                  setSelectedStudent(student);
+                  setIsStudentDialogOpen(true);
+                }}
+                onDelete={(student) => setStudentToDelete(student)}
+              />
             )}
-          </>
-        )}
-
         <p className="text-center text-xs text-muted-foreground pt-2">
           INPTIC · Institut National des Postes et des Technologies de l'Information et de la Communication · 2025/2026
         </p>
       </main>
 
-      {/* Rendu masqué pour l'exportation des PDF par lot */}
       {exportingActive && (
         <div
           style={{
@@ -579,20 +654,56 @@ const Index = () => {
         </div>
       )}
 
-      {/* Rendu visible uniquement à l'impression globale */}
       {printingAll && (
         <div className="print-area hidden print:block">
-          {students.map((student, index) => (
-            <div key={student.matricule} style={{ pageBreakAfter: index === students.length - 1 ? 'auto' : 'always' }}>
-              <BulletinPrintContent student={student} view={view} students={students} />
-            </div>
-          ))}
+          {students.map((student, index) => {
+            const viewsToPrint = printMode === "all" ? ["s5", "s6", "annuel"] : [printMode];
+            return (
+              <div key={student.matricule}>
+                {viewsToPrint.map((v, vIndex) => {
+                  const isLastStudent = index === students.length - 1;
+                  const isLastView = vIndex === viewsToPrint.length - 1;
+                  const pageBreak = (isLastStudent && isLastView) ? 'auto' : 'always';
+                  return (
+                    <div key={`${student.matricule}-${v}`} style={{ pageBreakAfter: pageBreak }}>
+                      <BulletinPrintContent student={student} view={v as View} students={students} />
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       )}
 
       <BulletinModal student={selected} view={view} open={open} onOpenChange={setOpen} students={students} />
 
-      {/* Dialog de confirmation réinitialisation */}
+      <StudentDialog
+        open={isStudentDialogOpen}
+        onOpenChange={setIsStudentDialogOpen}
+        student={selectedStudent}
+        onSaved={reload}
+      />
+
+      <AlertDialog open={!!studentToDelete} onOpenChange={(open) => !open && setStudentToDelete(undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer l'étudiant <strong>{studentToDelete?.nom} {studentToDelete?.prenom}</strong> ?
+              Cette action supprimera également toutes ses notes et son compte d'accès. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteStudent} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

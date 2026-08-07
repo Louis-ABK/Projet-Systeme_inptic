@@ -96,184 +96,171 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 1) Charger référentiel matières (code → id)
-    const { data: matieres } = await admin
-      .from("matieres")
-      .select("id, code, classe_id");
-    const matiereByCode = new Map<string, string>(
-      (matieres ?? []).map((m: any) => [m.code, m.id])
-    );
+    // 1) Charger référentiel matières et classes
+    const { data: matieres } = await admin.from("matieres").select("id, code, classe_id");
+    const matiereByCode = new Map<string, string>((matieres ?? []).map((m: any) => [m.code, m.id]));
     
-    // Charger référentiel classes (code → id)
     const { data: classes } = await admin.from("classes").select("id, code");
-    const classeByCode = new Map<string, string>(
-      (classes ?? []).map((c: any) => [c.code, c.id])
-    );
+    const classeByCode = new Map<string, string>((classes ?? []).map((c: any) => [c.code, c.id]));
     const defaultClasseId = body.defaultClasseKey ? classeByCode.get(body.defaultClasseKey) : undefined;
 
     let createdAccounts = 0;
-    let createdStudents = 0;
-    let updatedStudents = 0;
     let createdEvaluations = 0;
     const errors: string[] = [];
 
-    for (const s of body.students) {
-      try {
-        const matricule = String(s.matricule || "").trim();
-        const nom = String(s.nom || "").trim();
-        const prenom = String(s.prenom || "").trim();
-        if (!matricule || !nom || !prenom) {
-          errors.push(`Ligne ignorée (identité incomplète) : ${matricule || nom || prenom}`);
-          continue;
-        }
+    // 2) Préparer les données pour Bulk Upsert
+    const validStudents = body.students.filter((s) => s.matricule && s.nom && s.prenom);
+    const matricules = validStudents.map((s) => String(s.matricule).trim());
 
+    // Récupérer les étudiants existants pour ne pas écraser leurs champs à NULL
+    const { data: existingEtudiants } = await admin
+      .from("etudiants")
+      .select("id, matricule, user_id, date_naissance, lieu_naissance, bac, etablissement, classe_id")
+      .in("matricule", matricules);
+
+    const existingMap = new Map((existingEtudiants ?? []).map((e: any) => [e.matricule, e]));
+
+    const studentsToUpsert = validStudents.map((s) => {
+      const matricule = String(s.matricule).trim();
+      const nom = String(s.nom).trim();
+      const prenom = String(s.prenom).trim();
+      const ex = existingMap.get(matricule);
+      
+      let classe_id = defaultClasseId;
+      if (s.classeKey && classeByCode.has(s.classeKey)) {
+        classe_id = classeByCode.get(s.classeKey);
+      }
+      
+      return {
+        ...(ex && { id: ex.id }), // Indique l'ID pour forcer l'upsert correct
+        matricule,
+        nom,
+        prenom,
+        date_naissance: s.dateNaissance || ex?.date_naissance || null,
+        lieu_naissance: s.lieuNaissance || ex?.lieu_naissance || null,
+        bac: s.bac || ex?.bac || null,
+        etablissement: s.etablissement || ex?.etablissement || null,
+        classe_id: classe_id || ex?.classe_id || null
+      };
+    });
+
+    // 3) Bulk Upsert Étudiants
+    const { data: upsertedEtudiants, error: etudErr } = await admin
+      .from("etudiants")
+      .upsert(studentsToUpsert, { onConflict: "matricule" })
+      .select("id, matricule, user_id");
+
+    if (etudErr) {
+      throw new Error(`Erreur lors de l'insertion des étudiants: ${etudErr.message}`);
+    }
+
+    const etudiantIdMap = new Map((upsertedEtudiants ?? []).map((e: any) => [e.matricule, e.id]));
+    const userIdMap = new Map((upsertedEtudiants ?? []).map((e: any) => [e.matricule, e.user_id]));
+
+    // 4) Création des comptes Auth manquants (séquentiel pour éviter les limites de rate-limit Auth)
+    for (const s of validStudents) {
+      const matricule = String(s.matricule).trim();
+      const etudiantId = etudiantIdMap.get(matricule);
+      if (!etudiantId) continue;
+      
+      let userId = userIdMap.get(matricule);
+      if (!userId) {
+        const nom = String(s.nom).trim();
+        const prenom = String(s.prenom).trim();
         const email = `${slug(prenom)}.${slug(nom)}@inptic.ga`;
 
-        // 2) Upsert étudiant (avec champs identité complets + classe)
-        let classe_id = defaultClasseId;
-        if (s.classeKey && classeByCode.has(s.classeKey)) {
-          classe_id = classeByCode.get(s.classeKey);
+        const { data: created, error: cErr } = await admin.auth.admin.createUser({
+          email,
+          password: matricule,
+          email_confirm: true,
+          user_metadata: { nom, prenom, matricule, role: "etudiant" },
+        });
+
+        if (cErr) {
+          const found = await findUserByEmail(admin, email);
+          if (found) {
+            userId = found;
+          } else {
+            errors.push(`${matricule} (auth) : ${cErr.message}`);
+          }
+        } else if (created.user) {
+          userId = created.user.id;
+          createdAccounts++;
         }
 
-        const identityFields: any = {
-          nom,
-          prenom,
-          date_naissance: s.dateNaissance || null,
-          lieu_naissance: s.lieuNaissance || null,
-          bac: s.bac || null,
-          etablissement: s.etablissement || null,
-        };
-        
-        if (classe_id) {
-            identityFields.classe_id = classe_id;
+        if (userId) {
+          await admin.from("etudiants").update({ user_id: userId }).eq("id", etudiantId);
+          userIdMap.set(matricule, userId); // Update local cache
         }
+      }
+    }
 
-        const { data: existing } = await admin
-          .from("etudiants")
-          .select("id, user_id")
-          .eq("matricule", matricule)
-          .maybeSingle();
+    // 5) Bulk Upsert Notes
+    const evaluationsToUpsert: any[] = [];
+    
+    for (const s of validStudents) {
+      const matricule = String(s.matricule).trim();
+      const etudiantId = etudiantIdMap.get(matricule);
+      if (!etudiantId) continue;
 
-        let etudiantId: string;
-        if (existing) {
-          // Met à jour uniquement les champs fournis (ne pas écraser avec null si absent)
-          const updateFields: any = { nom, prenom };
-          if (s.dateNaissance) updateFields.date_naissance = s.dateNaissance;
-          if (s.lieuNaissance) updateFields.lieu_naissance = s.lieuNaissance;
-          if (s.bac) updateFields.bac = s.bac;
-          if (s.etablissement) updateFields.etablissement = s.etablissement;
-          if (classe_id) updateFields.classe_id = classe_id;
-          
-          await admin
-            .from("etudiants")
-            .update(updateFields)
-            .eq("id", existing.id);
-          etudiantId = existing.id;
-          updatedStudents++;
-        } else {
-          const { data: ins, error: insErr } = await admin
-            .from("etudiants")
-            .insert({ matricule, ...identityFields })
-            .select("id")
-            .single();
-          if (insErr) {
-            errors.push(`${matricule} : ${insErr.message}`);
+      const allGrades = [];
+      for (const [code, note] of Object.entries(s.s5 ?? {})) {
+        if (typeof note === "number" && !isNaN(note)) allGrades.push({ code, note });
+      }
+      for (const [code, note] of Object.entries(s.s6 ?? {})) {
+        if (typeof note === "number" && !isNaN(note)) allGrades.push({ code, note });
+      }
+
+      for (const g of allGrades) {
+        let matId = matiereByCode.get(g.code);
+        if (!matId) {
+          // Création de la matière manquante à la volée
+          const classe_id = defaultClasseId || (s.classeKey ? classeByCode.get(s.classeKey) : null);
+          if (classe_id) {
+            const { data: newMat, error: errNewMat } = await admin
+              .from("matieres")
+              .insert({ code: g.code, libelle: g.code, coef: 1, credits: 1, classe_id })
+              .select("id")
+              .single();
+            if (!errNewMat && newMat) {
+              matiereByCode.set(g.code, newMat.id);
+              matId = newMat.id;
+            } else {
+              errors.push(`${matricule}/${g.code} : impossible de créer la matière`);
+              continue;
+            }
+          } else {
+            errors.push(`${matricule}/${g.code} : matière inconnue`);
             continue;
           }
-          etudiantId = ins.id;
-          createdStudents++;
         }
-
-        // 3) Compte Auth (créer si inexistant, sinon récupérer)
-        let userId: string | null = existing?.user_id ?? null;
-        if (!userId) {
-          const { data: created, error: cErr } =
-            await admin.auth.admin.createUser({
-              email,
-              password: matricule,
-              email_confirm: true,
-              user_metadata: { nom, prenom, matricule, role: "etudiant" },
-            });
-          if (cErr) {
-            // Probablement déjà existant : retrouver par email
-            const found = await findUserByEmail(admin, email);
-            if (found) {
-              userId = found;
-            } else {
-              errors.push(`${matricule} (auth) : ${cErr.message}`);
-            }
-          } else if (created.user) {
-            userId = created.user.id;
-            createdAccounts++;
-          }
-          if (userId) {
-            await admin
-              .from("etudiants")
-              .update({ user_id: userId })
-              .eq("id", etudiantId);
-          }
-        }
-
-        // 4) Notes : type "examen" (note finale issue du fichier Excel)
-        const allGrades: Array<{ code: string; note: number }> = [];
-        for (const [code, note] of Object.entries(s.s5 ?? {}))
-          if (typeof note === "number" && !isNaN(note))
-            allGrades.push({ code, note });
-        for (const [code, note] of Object.entries(s.s6 ?? {}))
-          if (typeof note === "number" && !isNaN(note))
-            allGrades.push({ code, note });
-
-        for (const g of allGrades) {
-          const matId = matiereByCode.get(g.code);
-          if (!matId) {
-            // Création de la matière à la volée si nécessaire et si classe_id est dispo
-            if (classe_id) {
-                const { data: newMat, error: errNewMat } = await admin.from("matieres").insert({ code: g.code, libelle: g.code, coef: 1, credits: 1, classe_id: classe_id }).select("id").single();
-                if (!errNewMat && newMat) {
-                    matiereByCode.set(g.code, newMat.id);
-                    // Continuer avec la nouvelle matière
-                } else {
-                    errors.push(`${matricule}/${g.code} : matière inconnue et impossible à créer`);
-                    continue;
-                }
-            } else {
-                errors.push(`${matricule}/${g.code} : matière inconnue`);
-                continue;
-            }
-          }
-          
-          const finalMatId = matiereByCode.get(g.code);
-          if(!finalMatId) continue;
-          
-          const noteClamped = Math.max(0, Math.min(20, Number(g.note)));
-          const { error: upErr } = await admin
-            .from("evaluations")
-            .upsert(
-              {
-                etudiant_id: etudiantId,
-                matiere_id: finalMatId,
-                type: "examen",
-                note: noteClamped,
-              },
-              { onConflict: "etudiant_id,matiere_id,type" }
-            );
-          if (upErr) {
-            errors.push(`${matricule}/${g.code} : ${upErr.message}`);
-          } else {
-            createdEvaluations++;
-          }
-        }
-      } catch (e: any) {
-        errors.push(`${s.matricule} : ${e?.message || e}`);
+        
+        const noteClamped = Math.max(0, Math.min(20, Number(g.note)));
+        evaluationsToUpsert.push({
+          etudiant_id: etudiantId,
+          matiere_id: matId,
+          type: "examen",
+          note: noteClamped,
+        });
       }
+    }
+
+    if (evaluationsToUpsert.length > 0) {
+      const { error: evalErr } = await admin
+        .from("evaluations")
+        .upsert(evaluationsToUpsert, { onConflict: "etudiant_id,matiere_id,type" });
+      if (evalErr) {
+        throw new Error(`Erreur lors de l'insertion des notes: ${evalErr.message}`);
+      }
+      createdEvaluations = evaluationsToUpsert.length;
     }
 
     return new Response(
       JSON.stringify({
         ok: true,
         createdAccounts,
-        createdStudents,
-        updatedStudents,
+        createdStudents: existingEtudiants?.length === 0 ? studentsToUpsert.length : 0, // Approx
+        updatedStudents: studentsToUpsert.length,
         createdEvaluations,
         errors: errors.slice(0, 50),
         totalErrors: errors.length,
