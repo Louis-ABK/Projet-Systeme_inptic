@@ -65,7 +65,7 @@ type RowParsed = {
   prenom: string;
   dateNaissance?: string;
   lieuNaissance?: string;
-  bac?: string;
+  sexe?: string;
   etablissement?: string;
   grades: Record<string, number>;
 };
@@ -78,7 +78,7 @@ const IDENT_HEADERS = new Set(
     "etudiant", "student", "nomprenom", "nometprenom",
     "datedenaissance", "datenaissance", "dateneenaissance", "dn", "naissance",
     "lieudenaissance", "lieunaissance", "lieu",
-    "bac", "typedebac", "typedubaccalaureat", "baccalaureat", "typebac",
+    "sexe", "genre",
     "etablissement", "etablissementdorigine", "ecole", "lyceedorigine", "lycee",
   ].map(norm)
 );
@@ -90,7 +90,7 @@ const toDateString = (v: any): string => {
     const d = new Date(ms);
     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   }
-  const s = String(v).trim();
+  let s = String(v).trim().replace(/\s+/g, ""); // Remove all spaces
   const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
   if (m) {
     let [_, dd, mm, yy] = m;
@@ -98,13 +98,17 @@ const toDateString = (v: any): string => {
     return `${yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   }
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  return s;
+  
+  // If we can't parse it reliably to YYYY-MM-DD, return null to avoid Edge Function crashes
+  return ""; 
 };
 
 const findCol = (row: any, candidates: string[]): string => {
-  const wanted = candidates.map(norm);
-  for (const k of Object.keys(row)) {
-    if (wanted.includes(norm(k))) return String(row[k] ?? "").trim();
+  const normCandidates = candidates.map((c) => String(c).toLowerCase().trim());
+  for (const [key, val] of Object.entries(row)) {
+    if (normCandidates.includes(String(key).toLowerCase().trim())) {
+      return String(val ?? "").trim();
+    }
   }
   return "";
 };
@@ -118,8 +122,9 @@ const parseSheet = (
   const out: RowParsed[] = [];
   rows.forEach((r) => {
     const matricule = findCol(r, ["Matricule", "matricule", "MATRICULE", "N°", "No", "Numéro", "ID"]);
-    let nom = findCol(r, ["Nom", "NOM", "Lastname", "Last name"]);
-    let prenom = findCol(r, ["Prenom", "Prénom", "PRENOM", "Firstname", "First name"]);
+    let nom = findCol(r, ["Nom", "NOM", "nom", "Noms", "noms", "Lastname", "Last name"]);
+    let prenom = findCol(r, ["Prenom", "Prénom", "PRENOM", "prenom", "Prénoms", "prenoms", "Firstname", "First name"]);
+
     if (!nom && !prenom) {
       const full = findCol(r, ["Étudiant", "Etudiant", "Nom et Prénom", "Nom Prenom"]);
       if (full) {
@@ -131,7 +136,7 @@ const parseSheet = (
     const dateRaw = findCol(r, ["Date de naissance", "Date naissance", "DateNaissance", "Né(e) le", "Ne le", "DN", "Naissance"]);
     const dateNaissance = dateRaw ? toDateString(dateRaw) : "";
     const lieuNaissance = findCol(r, ["Lieu de naissance", "Lieu naissance", "LieuNaissance", "Lieu"]);
-    const bac = findCol(r, ["Type de baccalauréat", "Type de baccalaureat", "Type bac", "Bac", "Baccalauréat", "Baccalaureat"]);
+    const sexe = findCol(r, ["Sexe", "Genre", "sexe", "genre"]);
     const etablissement = findCol(r, ["Établissement d'origine", "Etablissement d'origine", "Établissement", "Etablissement", "École", "Ecole", "Lycée d'origine", "Lycée", "Lycee"]);
 
     const grades: Record<string, number> = {};
@@ -140,7 +145,7 @@ const parseSheet = (
       if (norm(header).includes("moyenne")) return;
       if (norm(header).includes("naissance")) return;
       if (norm(header).includes("etablissement")) return;
-      if (norm(header).includes("bac")) return;
+      if (norm(header).includes("sexe")) return;
       const key = matchSubjectKey(header, subjects);
       if (key) {
         const v = toNumber(r[header]);
@@ -157,7 +162,7 @@ const parseSheet = (
         prenom: prenom.trim(),
         dateNaissance: dateNaissance || undefined,
         lieuNaissance: lieuNaissance || undefined,
-        bac: bac || undefined,
+        sexe: sexe || undefined,
         etablissement: etablissement || undefined,
         grades,
       });
@@ -215,7 +220,7 @@ export const importStudentsFromExcel = async (
     prenom: string;
     dateNaissance?: string;
     lieuNaissance?: string;
-    bac?: string;
+    sexe?: string;
     etablissement?: string;
   };
   const identityMap = new Map<string, Identity>();
@@ -249,7 +254,7 @@ export const importStudentsFromExcel = async (
           prenom: prev.prenom || r.prenom || "",
           dateNaissance: prev.dateNaissance || r.dateNaissance,
           lieuNaissance: prev.lieuNaissance || r.lieuNaissance,
-          bac: prev.bac || r.bac,
+          sexe: prev.sexe || r.sexe,
           etablissement: prev.etablissement || r.etablissement,
         });
         added++;
@@ -302,7 +307,7 @@ export const importStudentsFromExcel = async (
       prenom: id.prenom || s5Row?.prenom || s6Row?.prenom || "",
       dateNaissance: id.dateNaissance || s5Row?.dateNaissance || s6Row?.dateNaissance || null,
       lieuNaissance: id.lieuNaissance || s5Row?.lieuNaissance || s6Row?.lieuNaissance || null,
-      bac: id.bac || s5Row?.bac || s6Row?.bac || null,
+      sexe: id.sexe || s5Row?.sexe || s6Row?.sexe || null,
       etablissement: id.etablissement || s5Row?.etablissement || s6Row?.etablissement || null,
       classeKey: classeKey || undefined,
       s5: s5Full,
@@ -315,6 +320,101 @@ export const importStudentsFromExcel = async (
   });
 
   students.sort((a, b) => a.matricule.localeCompare(b.matricule));
+
+  return { students, warnings, info };
+};
+
+export type ListImportResult = {
+  students: Pick<Student, "matricule" | "nom" | "prenom" | "dateNaissance" | "lieuNaissance" | "sexe" | "etablissement">[];
+  warnings: string[];
+  info: string[];
+};
+
+/**
+ * Importe une liste d'étudiants SANS notes depuis un fichier Excel.
+ * Lit toutes les feuilles, extrait uniquement les colonnes d'identité.
+ * Si aucun matricule n'est fourni, génère un matricule au format prenom.nom.
+ */
+export const importStudentListFromExcel = async (
+  files: File | File[],
+  classeKey?: string | null
+): Promise<ListImportResult> => {
+  const list = Array.isArray(files) ? files : [files];
+  const warnings: string[] = [];
+  const info: string[] = [];
+  const seen = new Map<string, ListImportResult["students"][0]>();
+
+  for (const file of list) {
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: "array" });
+    let fileHadData = false;
+
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<any>(ws, { defval: "", raw: true });
+      let added = 0;
+
+      for (const r of rows) {
+        let nom = findCol(r, ["Nom", "NOM", "nom", "Noms", "noms", "Lastname", "Last name"]);
+        let prenom = findCol(r, ["Prenom", "Prénom", "PRENOM", "prenom", "Prénoms", "prenoms", "Firstname", "First name"]);
+
+        // Si pas de nom/prénom séparés, chercher un champ combiné
+        if (!nom && !prenom) {
+          const full = findCol(r, ["Étudiant", "Etudiant", "Nom et Prénom", "Nom Prenom"]);
+          if (full) {
+            const parts = full.split(/\s+/);
+            nom = parts[0] || "";
+            prenom = parts.slice(1).join(" ");
+          }
+        }
+
+        if (!nom && !prenom) continue;
+
+        nom = nom.trim();
+        prenom = prenom.trim();
+
+        const dateRaw = findCol(r, ["Date de naissance", "Date naissance", "DateNaissance", "dateNaissance", "Né(e) le", "Ne le", "DN"]);
+        const dateNaissance = dateRaw ? toDateString(dateRaw) : undefined;
+        const lieuNaissance = findCol(r, ["Lieu de naissance", "Lieu naissance", "LieuNaissance", "lieuNaissance", "Lieu"]) || undefined;
+        const sexe = findCol(r, ["Sexe", "Genre", "sexe", "genre"]) || undefined;
+        const etablissement = findCol(r, ["Établissement", "Etablissement", "etablissement", "École", "Ecole", "Lycée", "Lycee"]) || undefined;
+
+        // Matricule : champ explicite ou auto-génération prenom.nom
+        let matricule = findCol(r, ["Matricule", "matricule", "MATRICULE", "ID", "No"]).trim();
+        if (!matricule) {
+          const slug = (s: string) =>
+            String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
+          matricule = `${slug(prenom)}.${slug(nom)}`;
+        }
+
+        if (!matricule) continue;
+
+        seen.set(matricule, {
+          matricule,
+          nom,
+          prenom,
+          dateNaissance: dateNaissance || null,
+          lieuNaissance: lieuNaissance || null,
+          sexe: sexe || null,
+          etablissement: etablissement || null,
+        });
+        added++;
+      }
+
+      if (added > 0) {
+        fileHadData = true;
+        info.push(`📋 ${file.name} — feuille "${sheetName}" → ${added} étudiant(s) trouvé(s)`);
+      }
+    }
+
+    if (!fileHadData) {
+      warnings.push(`Aucune donnée exploitable dans ${file.name}. Vérifiez que les colonnes "nom" et "prenom" existent.`);
+    }
+  }
+
+  const students = Array.from(seen.values()).sort((a, b) =>
+    a.matricule.localeCompare(b.matricule)
+  );
 
   return { students, warnings, info };
 };

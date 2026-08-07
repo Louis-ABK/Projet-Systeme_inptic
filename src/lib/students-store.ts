@@ -38,7 +38,7 @@ export const fetchStudents = async (classeKey?: ClasseKey | null): Promise<Stude
   let etudiantsQuery = supabase
     .from("etudiants")
     .select(`
-      id, matricule, nom, prenom, date_naissance, lieu_naissance, bac, etablissement,
+      id, matricule, nom, prenom, date_naissance, lieu_naissance, sexe, etablissement,
       classes(code, niveau, filieres(code))
     `)
     .order("matricule");
@@ -117,7 +117,7 @@ export const fetchStudents = async (classeKey?: ClasseKey | null): Promise<Stude
         prenom: e.prenom,
         dateNaissance: e.date_naissance,
         lieuNaissance: e.lieu_naissance,
-        bac: e.bac,
+        sexe: e.sexe,
         etablissement: e.etablissement,
         classeKey: eClasseKey,
         niveau: e.classes?.niveau,

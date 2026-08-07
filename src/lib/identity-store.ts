@@ -8,7 +8,7 @@ export type StudentIdentity = {
   prenom?: string;
   dateNaissance?: string;
   lieuNaissance?: string;
-  bac?: string;
+  sexe?: string;
   etablissement?: string;
 };
 

@@ -393,7 +393,7 @@ export const BulletinPrintContent = ({ student, view, students }: Props) => {
   const identity = {
     dateNaissance: student?.dateNaissance || localIdentity.dateNaissance || "",
     lieuNaissance: student?.lieuNaissance || localIdentity.lieuNaissance || "",
-    bac: student?.bac || localIdentity.bac || "",
+    sexe: student?.sexe || localIdentity.sexe || "",
     etablissement: student?.etablissement || localIdentity.etablissement || "",
   };
 

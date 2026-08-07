@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { handleEdgeError } from "@/lib/utils";
 
 interface StudentDialogProps {
   open: boolean;
@@ -37,7 +38,7 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
     prenom: "",
     dateNaissance: "",
     lieuNaissance: "",
-    bac: "",
+    sexe: "",
     etablissement: "",
   });
 
@@ -58,7 +59,7 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
           prenom: student.prenom || "",
           dateNaissance: student.dateNaissance || "",
           lieuNaissance: student.lieuNaissance || "",
-          bac: student.bac || "",
+          sexe: student.sexe || "",
           etablissement: student.etablissement || "",
         });
 
@@ -84,7 +85,7 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
         setAbsenceS5("0");
         setAbsenceS6("0");
       } else {
-        setIdentity({ matricule: "", nom: "", prenom: "", dateNaissance: "", lieuNaissance: "", bac: "", etablissement: "" });
+        setIdentity({ matricule: "", nom: "", prenom: "", dateNaissance: "", lieuNaissance: "", sexe: "", etablissement: "" });
         const ns5: Record<string, any> = {};
         subjectsS5.forEach((s) => (ns5[s.key] = { cc: "", exam: "", rattrapage: "" }));
         setNotesS5(ns5);
@@ -150,6 +151,11 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
       return;
     }
 
+    if (identity.dateNaissance && !/^\d{4}-\d{2}-\d{2}$/.test(identity.dateNaissance)) {
+      toast({ title: "Format invalide", description: "La date de naissance doit être au format YYYY-MM-DD (ex: 2001-03-12).", variant: "destructive" });
+      return;
+    }
+
     // Vérification des notes invalides
     let hasInvalidGrades = false;
     const checkNotes = (notesObj: any) => {
@@ -200,7 +206,7 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
           absenceHeures: parseFloat(absenceS5.replace(",", ".")) || 0,
         },
       });
-      if (errS5) throw new Error(errS5.message);
+      await handleEdgeError(errS5);
 
       // On sauvegarde S6
       const { error: errS6 } = await supabase.functions.invoke("save-grades", {
@@ -211,7 +217,7 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
           absenceHeures: parseFloat(absenceS6.replace(",", ".")) || 0,
         },
       });
-      if (errS6) throw new Error(errS6.message);
+      await handleEdgeError(errS6);
 
       toast({ title: "Succès", description: `Étudiant ${isEdit ? "modifié" : "ajouté"} avec succès.` });
       onSaved();
@@ -325,10 +331,10 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
                 />
               </div>
               <div className="space-y-2">
-                <Label>Bac</Label>
+                <Label>Sexe</Label>
                 <Input
-                  value={identity.bac}
-                  onChange={(e) => setIdentity({ ...identity, bac: e.target.value })}
+                  value={identity.sexe}
+                  onChange={(e) => setIdentity({ ...identity, sexe: e.target.value })}
                 />
               </div>
               <div className="space-y-2 col-span-2">

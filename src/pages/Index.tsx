@@ -3,6 +3,8 @@ import { AppHeader } from "@/components/AppHeader";
 import { GradesTable } from "@/components/GradesTable";
 import { BulletinModal } from "@/components/BulletinModal";
 import { StudentDialog } from "@/components/StudentDialog";
+import { StudentListTable } from "@/components/StudentListTable";
+import { cn, handleEdgeError } from "@/lib/utils";
 import { Student } from "@/data/students";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -18,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { importStudentsFromExcel } from "@/lib/excel-import";
+import { importStudentsFromExcel, importStudentListFromExcel } from "@/lib/excel-import";
 import { useStudents } from "@/hooks/use-students";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type View = "s5" | "s6" | "annuel";
+type View = "s5" | "s6" | "annuel" | "liste";
 
 const Index = () => {
   const { toast } = useToast();
@@ -49,6 +51,7 @@ const Index = () => {
   const [open, setOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const listInputRef = useRef<HTMLInputElement>(null);
   const [exportingZip, setExportingZip] = useState(false);
   const [exportingActive, setExportingActive] = useState(false);
   const [printingAll, setPrintingAll] = useState(false);
@@ -224,7 +227,7 @@ const Index = () => {
       const { error } = await supabase.functions.invoke("delete-student", {
         body: { matricule: studentToDelete.matricule },
       });
-      if (error) throw new Error(error.message);
+      await handleEdgeError(error);
       
       toast({
         title: "Suppression réussie",
@@ -273,6 +276,73 @@ const Index = () => {
     setOpen(true);
   };
 
+  const handleImportList = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
+    setImporting(true);
+    try {
+      toast({
+        title: `Lecture de la liste…`,
+        description: files.map((f) => f.name).join(", "),
+      });
+      const { students: parsed, warnings, info } = await importStudentListFromExcel(files, classeKey);
+      if (parsed.length === 0) {
+        toast({
+          title: "Aucune donnée détectée",
+          description: warnings[0] || "Vérifiez vos fichiers.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const payload = {
+        defaultClasseKey: classeKey || undefined,
+        students: parsed.map((s) => ({
+          matricule: s.matricule,
+          nom: s.nom,
+          prenom: s.prenom,
+          dateNaissance: s.dateNaissance ?? undefined,
+          lieuNaissance: s.lieuNaissance ?? undefined,
+          sexe: s.sexe ?? undefined,
+          etablissement: s.etablissement ?? undefined,
+          classeKey: classeKey || undefined,
+          s5: {},
+          s6: {},
+        })),
+      };
+
+      toast({
+        title: "Envoi vers le serveur…",
+        description: `${parsed.length} étudiant(s) à créer/mettre à jour pour la classe ${classeLabel}.`,
+      });
+
+      const { data, error } = await supabase.functions.invoke("import-students", {
+        body: payload,
+      });
+
+      if (error) throw new Error(error.message);
+
+      await reload();
+
+      toast({
+        title: `Import réussi : ${parsed.length} étudiant(s)`,
+        description: "La liste des étudiants a été mise à jour.",
+      });
+      if (info.length) console.log("[Import Liste]", info);
+      if (warnings.length) console.warn("[Import Liste] Avertissements :", warnings);
+    } catch (err: any) {
+      toast({
+        title: "Erreur d'import de liste",
+        description: err?.message || "Fichier illisible.",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+      if (listInputRef.current) listInputRef.current.value = "";
+    }
+  };
+
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
@@ -301,7 +371,7 @@ const Index = () => {
           prenom: s.prenom,
           dateNaissance: s.dateNaissance ?? undefined,
           lieuNaissance: s.lieuNaissance ?? undefined,
-          bac: (s as any).bac ?? undefined,
+          sexe: (s as any).sexe ?? undefined,
           etablissement: (s as any).etablissement ?? undefined,
           classeKey: classeKey || undefined,
           s5: Object.fromEntries(
@@ -326,7 +396,7 @@ const Index = () => {
         body: payload,
       });
 
-      if (error) throw new Error(error.message);
+      await handleEdgeError(error);
 
       await reload();
 
@@ -389,6 +459,29 @@ const Index = () => {
               </Button>
 
               <input
+                ref={listInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleImportList}
+                disabled={importing}
+              />
+              <Button
+                variant="outline"
+                onClick={() => listInputRef.current?.click()}
+                disabled={importing || exportingZip}
+                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                title="Importer uniquement une liste d'étudiants (sans notes)"
+              >
+                {importing ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <ClipboardList className="h-4 w-4 mr-1.5" />
+                )}
+                Importer Liste
+              </Button>
+
+              <input
                 ref={fileInputRef}
                 type="file"
                 accept=".xlsx,.xls"
@@ -402,14 +495,14 @@ const Index = () => {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importing || exportingZip}
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                title="Sélectionnez un ou plusieurs fichiers Excel (S5 et/ou S6)"
+                title="Sélectionnez un ou plusieurs fichiers Excel avec les notes (S5 et/ou S6)"
               >
                 {importing ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                 ) : (
                   <Upload className="h-4 w-4 mr-1.5" />
                 )}
-                Importer Excel
+                Importer Notes
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -527,7 +620,7 @@ const Index = () => {
             <Card className="overflow-hidden shadow-elegant border-border/50">
               <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
                 <Tabs value={view} onValueChange={(v) => setView(v as View)} className="w-full lg:w-auto">
-                  <TabsList className="grid grid-cols-3 lg:w-[440px] h-11 bg-muted">
+                  <TabsList className="grid grid-cols-4 lg:w-[580px] h-11 bg-muted">
                     <TabsTrigger
                       value="s5"
                       className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold"
@@ -545,6 +638,12 @@ const Index = () => {
                       className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold"
                     >
                       Bilan Annuel
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="liste"
+                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold"
+                    >
+                      Liste d'Étudiants
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -610,6 +709,16 @@ const Index = () => {
                   <UserPlus className="h-4 w-4 mr-1.5" /> Ajouter un étudiant
                 </Button>
               </Card>
+            ) : view === "liste" ? (
+              <StudentListTable
+                students={filtered}
+                classeKey={classeKey}
+                onEdit={(student) => {
+                  setSelectedStudent(student);
+                  setIsStudentDialogOpen(true);
+                }}
+                onDelete={(student) => setStudentToDelete(student)}
+              />
             ) : (
               <GradesTable 
                 students={filtered} 

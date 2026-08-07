@@ -17,7 +17,7 @@ type IncomingStudent = {
   prenom: string;
   dateNaissance?: string;
   lieuNaissance?: string;
-  bac?: string;
+  sexe?: string;
   etablissement?: string;
   classeKey?: string; // e.g. "GI-L3"
   s5?: Record<string, number>; // { matiereCode: note }
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
     // Récupérer les étudiants existants pour ne pas écraser leurs champs à NULL
     const { data: existingEtudiants } = await admin
       .from("etudiants")
-      .select("id, matricule, user_id, date_naissance, lieu_naissance, bac, etablissement, classe_id")
+      .select("id, matricule, user_id, date_naissance, lieu_naissance, sexe, etablissement, classe_id")
       .in("matricule", matricules);
 
     const existingMap = new Map((existingEtudiants ?? []).map((e: any) => [e.matricule, e]));
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
         prenom,
         date_naissance: s.dateNaissance || ex?.date_naissance || null,
         lieu_naissance: s.lieuNaissance || ex?.lieu_naissance || null,
-        bac: s.bac || ex?.bac || null,
+        sexe: s.sexe || ex?.sexe || null,
         etablissement: s.etablissement || ex?.etablissement || null,
         classe_id: classe_id || ex?.classe_id || null
       };
@@ -268,8 +268,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || String(e) }), {
-      status: 500,
+    return new Response(JSON.stringify({ error: e?.message || String(e), stack: e?.stack }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

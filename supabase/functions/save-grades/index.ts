@@ -23,7 +23,7 @@ type Payload = {
     prenom: string;
     dateNaissance?: string;
     lieuNaissance?: string;
-    bac?: string;
+    sexe?: string;
     etablissement?: string;
     classeKey?: string;
   };
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
       prenom,
       date_naissance: identity.dateNaissance || null,
       lieu_naissance: identity.lieuNaissance || null,
-      bac: identity.bac || null,
+      sexe: identity.sexe || null,
       etablissement: identity.etablissement || null,
     };
     if (classe_id) {

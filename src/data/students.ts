@@ -6,7 +6,7 @@ export type Student = {
   prenom: string;
   dateNaissance?: string | null;
   lieuNaissance?: string | null;
-  bac?: string | null;
+  sexe?: string | null;
   etablissement?: string | null;
   
   // Nouveaux champs pour le multi-filière
