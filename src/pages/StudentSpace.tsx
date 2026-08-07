@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { getMention, getDecision, getCreditsS5, getCreditsS6, S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
+import { getMention, getDecision, getCreditsS5, getCreditsS6 } from "@/data/students";
+import { getSubjects, ClasseKey } from "@/data/referentiel";
 import { useStudents } from "@/hooks/use-students";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,9 +28,9 @@ const StudentSpace = () => {
   const rank = useMemo(() => {
     if (!student) return 0;
     const sorted = [...students].sort((a, b) => {
-      if (view === "s5") return b.s5.moyenne - a.s5.moyenne;
-      if (view === "s6") return b.s6.moyenne - a.s6.moyenne;
-      return b.moyenneGenerale - a.moyenneGenerale;
+      if (view === "s5") return (b.s5.moyenne || 0) - (a.s5.moyenne || 0);
+      if (view === "s6") return (b.s6.moyenne || 0) - (a.s6.moyenne || 0);
+      return (b.moyenneGenerale || 0) - (a.moyenneGenerale || 0);
     });
     return sorted.findIndex((s) => s.matricule === student.matricule) + 1;
   }, [student, view, students]);
@@ -61,9 +62,9 @@ const StudentSpace = () => {
   const credS5 = getCreditsS5(student);
   const credS6 = getCreditsS6(student);
   const totalCred = credS5 + credS6;
-  const decision = getDecision(student.moyenneGenerale, student.s5.moyenne, student.s6.moyenne, student);
+  const decision = getDecision(student.moyenneGenerale, student.s5.moyenne || 0, student.s6.moyenne || 0, student);
   const mention = getMention(student.moyenneGenerale);
-  const subjects = view === "s5" ? S5_SUBJECTS : view === "s6" ? S6_SUBJECTS : null;
+  const subjects = view === "s5" ? getSubjects(student.classeKey as ClasseKey, "s5") : view === "s6" ? getSubjects(student.classeKey as ClasseKey, "s6") : null;
   const grades = view === "s5" ? student.s5 : view === "s6" ? student.s6 : null;
 
   return (
@@ -77,7 +78,7 @@ const StudentSpace = () => {
             <h1 className="font-serif text-lg md:text-xl font-bold leading-tight">
               Espace étudiant — {student.prenom} {student.nom}
             </h1>
-            <p className="text-xs opacity-90 font-mono">{student.matricule} · LP ASUR 2025/2026</p>
+            <p className="text-xs opacity-90 font-mono">{student.matricule} · {student.classeKey || "INPTIC"} 2025/2026</p>
           </div>
           <Button onClick={logout} variant="secondary" size="sm">
             <LogOut className="h-4 w-4 mr-1.5" /> Déconnexion
@@ -90,20 +91,20 @@ const StudentSpace = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">Moyenne S5</p>
-            <p className={cn("text-2xl font-bold tabular-nums", student.s5.moyenne >= 10 ? "text-success" : "text-destructive")}>
-              {student.s5.moyenne.toFixed(2)}
+            <p className={cn("text-2xl font-bold tabular-nums", (student.s5.moyenne || 0) >= 10 ? "text-success" : "text-destructive")}>
+              {(student.s5.moyenne || 0).toFixed(2)}
             </p>
           </Card>
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">Moyenne S6</p>
-            <p className={cn("text-2xl font-bold tabular-nums", student.s6.moyenne >= 10 ? "text-success" : "text-destructive")}>
-              {student.s6.moyenne.toFixed(2)}
+            <p className={cn("text-2xl font-bold tabular-nums", (student.s6.moyenne || 0) >= 10 ? "text-success" : "text-destructive")}>
+              {(student.s6.moyenne || 0).toFixed(2)}
             </p>
           </Card>
           <Card className="p-4 bg-primary/5 border-primary/30">
             <p className="text-xs text-muted-foreground">Moyenne générale</p>
-            <p className={cn("text-2xl font-bold tabular-nums", student.moyenneGenerale >= 10 ? "text-success" : "text-destructive")}>
-              {student.moyenneGenerale.toFixed(2)}
+            <p className={cn("text-2xl font-bold tabular-nums", (student.moyenneGenerale || 0) >= 10 ? "text-success" : "text-destructive")}>
+              {(student.moyenneGenerale || 0).toFixed(2)}
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">{mention}</p>
           </Card>
@@ -174,15 +175,15 @@ const StudentSpace = () => {
                   const ueSubjects = subjects.filter((s) => s.ue === ue);
                   const totalCoef = ueSubjects.reduce((a, b) => a + b.coef, 0);
                   const sum = ueSubjects.reduce(
-                    (a, b) => a + ((grades as any)[b.key] as number) * b.coef,
+                    (a, b) => a + (((grades as any)[b.key] as number) || 0) * b.coef,
                     0
                   );
-                  const moyUE = sum / totalCoef;
+                  const moyUE = totalCoef ? sum / totalCoef : 0;
                   const totalCredUE = ueSubjects.reduce((a, b) => a + b.credits, 0);
-                  const validated = moyUE >= 10 || (grades as any).moyenne >= 10;
+                  const validated = moyUE >= 10 || ((grades as any).moyenne || 0) >= 10;
                   return (
-                    <>
-                      <tr key={ue} className="bg-primary/10">
+                    <React.Fragment key={ue}>
+                      <tr className="bg-primary/10">
                         <td className="px-4 py-2 font-bold text-primary">{ue}</td>
                         <td className="text-center px-3 py-2 font-bold">{totalCredUE}</td>
                         <td className="text-center px-3 py-2 font-bold">{totalCoef.toFixed(2).replace(".", ",")}</td>
@@ -209,7 +210,7 @@ const StudentSpace = () => {
                           <td className="text-center px-3 py-2">{s.credits}</td>
                           <td className="text-center px-3 py-2">{s.coef.toFixed(2).replace(".", ",")}</td>
                           <td className="text-center px-3 py-2">
-                            <Grade value={(grades as any)[s.key]} />
+                            <Grade value={(grades as any)[s.key] || 0} />
                           </td>
                           <td className="text-center px-3 py-2">
                             <span className={cn(
@@ -221,20 +222,20 @@ const StudentSpace = () => {
                           </td>
                         </tr>
                       ))}
-                    </>
+                    </React.Fragment>
                   );
                 })}
                 <tr className="bg-primary/15 font-bold border-t-2 border-primary/30">
                   <td colSpan={3} className="px-4 py-2.5 text-right">Moyenne Semestre</td>
                   <td className="text-center px-3 py-2.5">
-                    <Grade value={(grades as any).moyenne} />
+                    <Grade value={(grades as any).moyenne || 0} />
                   </td>
                   <td className="text-center px-3 py-2.5">
                     <span className={cn(
                       "inline-block px-2.5 py-1 rounded-full text-xs font-semibold",
-                      (grades as any).moyenne >= 10 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+                      ((grades as any).moyenne || 0) >= 10 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
                     )}>
-                      {(grades as any).moyenne >= 10 ? "Semestre validé" : "Semestre non validé"}
+                      {((grades as any).moyenne || 0) >= 10 ? "Semestre validé" : "Semestre non validé"}
                     </span>
                   </td>
                 </tr>
@@ -258,17 +259,17 @@ const StudentSpace = () => {
               <tbody>
                 <tr className="bg-card">
                   <td className="px-4 py-2.5 font-semibold">Semestre 5</td>
-                  <td className="text-center"><Grade value={student.s5.moyenne} /></td>
+                  <td className="text-center"><Grade value={student.s5.moyenne || 0} /></td>
                   <td className="text-center px-3 py-2.5 font-semibold">{credS5} / 30</td>
                 </tr>
                 <tr className="bg-muted/30">
                   <td className="px-4 py-2.5 font-semibold">Semestre 6</td>
-                  <td className="text-center"><Grade value={student.s6.moyenne} /></td>
+                  <td className="text-center"><Grade value={student.s6.moyenne || 0} /></td>
                   <td className="text-center px-3 py-2.5 font-semibold">{credS6} / 30</td>
                 </tr>
                 <tr className="bg-primary/10 font-bold">
                   <td className="px-4 py-2.5">Moyenne annuelle</td>
-                  <td className="text-center"><Grade value={student.moyenneGenerale} /></td>
+                  <td className="text-center"><Grade value={student.moyenneGenerale || 0} /></td>
                   <td className="text-center px-3 py-2.5">{totalCred} / 60</td>
                 </tr>
               </tbody>

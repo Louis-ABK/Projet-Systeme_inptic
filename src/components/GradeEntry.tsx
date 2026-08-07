@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +16,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { saveIdentity as persistIdentity, loadIdentity } from "@/lib/identity-store";
 import { supabase } from "@/integrations/supabase/client";
-
+import { useClasse } from "@/contexts/ClasseContext";
+import { getSubjects } from "@/data/referentiel";
 
 type Sem = "s5" | "s6";
 
@@ -31,7 +31,7 @@ interface SubjectEntry {
 }
 
 interface IdentityForm {
-  matricule: string; // auto-généré, sert d'identifiant de connexion
+  matricule: string;
   nom: string;
   prenom: string;
   dateNaissance: string;
@@ -40,7 +40,7 @@ interface IdentityForm {
   etablissement: string;
 }
 
-const STORAGE_KEY = "inptic_grade_entries_v2";
+const STORAGE_KEY = "inptic_grade_entries_v3";
 
 const loadEntries = (): Record<string, any> => {
   try {
@@ -58,13 +58,13 @@ const buildEmpty = (subjects: readonly any[]): Record<string, SubjectEntry> => {
   return o;
 };
 
-// Génère un matricule de connexion stable depuis prénom + nom
 const slugify = (s: string) =>
   String(s ?? "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "");
+
 const buildMatricule = (prenom: string, nom: string) => {
   const p = slugify(prenom);
   const n = slugify(nom);
@@ -89,15 +89,18 @@ interface GradeEntryProps {
 
 export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) => {
   const { toast } = useToast();
+  const { classeKey, filiere, niveau } = useClasse();
+
   const [identity, setIdentity] = useState<IdentityForm>(emptyIdentity);
   const [sem, setSem] = useState<Sem>("s5");
   const [absence, setAbsence] = useState("0");
   const [saving, setSaving] = useState(false);
-  const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
   const [entries, setEntries] = useState<Record<string, any>>(() => loadEntries());
 
+  // Sujets dynamiques selon la classe sélectionnée
+  const subjects = useMemo(() => getSubjects(classeKey, sem), [classeKey, sem]);
 
-  // Génère automatiquement le matricule de connexion à partir de nom + prénom
+  // Génère automatiquement le matricule à partir de nom + prénom
   useEffect(() => {
     const m = buildMatricule(identity.prenom, identity.nom);
     if (m && m !== identity.matricule) {
@@ -128,8 +131,8 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
   }, [identity.matricule]);
 
   const sessionKey = identity.matricule
-    ? `${identity.matricule}_${sem}`
-    : `__draft__${sem}`;
+    ? `${identity.matricule}_${classeKey || 'noclass'}_${sem}`
+    : `__draft__${classeKey || 'noclass'}_${sem}`;
   const current: Record<string, SubjectEntry> =
     entries[sessionKey]?.notes || buildEmpty(subjects);
 
@@ -156,15 +159,12 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
     setEntries({ ...entries, [sessionKey]: { identity, absence: v, notes: current } });
   };
 
-  // Logique : si rattrapage saisi → moyenne = max(originale, note rattrapage)
-  // Originale = CC*0.4 + Exam*0.6
   const moyMatiere = (e: SubjectEntry): number | null => {
     const cc = parseFloat(e.cc.replace(",", "."));
     const ex = parseFloat(e.exam.replace(",", "."));
     const rat = parseFloat(e.rattrapage.replace(",", "."));
     const hasRat = !isNaN(rat);
     if (isNaN(cc) || isNaN(ex)) {
-      // Si seul le rattrapage est saisi, on l'utilise comme note finale
       if (hasRat) return rat;
       return null;
     }
@@ -207,11 +207,9 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
     const ues = Array.from(new Set(subjects.map((s) => s.ue)));
     const ueResults = ues.map((ue) => {
       const subs = subjects.filter((s) => s.ue === ue);
-      let sum = 0,
-        coef = 0,
-        complete = true;
+      let sum = 0, coef = 0, complete = true;
       subs.forEach((s) => {
-        const m = moyMatiere(current[s.key]);
+        const m = moyMatiere(current[s.key] || { cc: "", exam: "", rattrapage: "" });
         if (m === null) complete = false;
         else {
           sum += m * s.coef;
@@ -220,11 +218,9 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
       });
       return { ue, moy: coef ? sum / coef : null, complete };
     });
-    let sum = 0,
-      coef = 0,
-      allComplete = true;
+    let sum = 0, coef = 0, allComplete = true;
     subjects.forEach((s) => {
-      const m = moyMatiere(current[s.key]);
+      const m = moyMatiere(current[s.key] || { cc: "", exam: "", rattrapage: "" });
       if (m === null) allComplete = false;
       else {
         sum += m * s.coef;
@@ -263,7 +259,6 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
       return;
     }
 
-    // Sauvegarde locale (brouillon)
     const data = { ...entries, [sessionKey]: { identity, absence, notes: current } };
     setEntries(data);
     saveEntries(data);
@@ -276,7 +271,6 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
       etablissement: identity.etablissement,
     });
 
-    // Construit le payload pour l'edge function
     const notesPayload: Record<string, { cc?: number; examen?: number; rattrapage?: number }> = {};
     Object.entries(current).forEach(([code, e]) => {
       const v: any = {};
@@ -301,6 +295,7 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
             lieuNaissance: identity.lieuNaissance || undefined,
             bac: identity.bac || undefined,
             etablissement: identity.etablissement || undefined,
+            classeKey: classeKey || undefined,
           },
           semestre: sem,
           absenceHeures: parseFloat(absence.replace(",", ".")) || 0,
@@ -312,7 +307,7 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
 
       toast({
         title: "✓ Notes enregistrées",
-        description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}. L'étudiant apparaît dans le Tableau de bord.`,
+        description: `${identity.nom} ${identity.prenom} — ${resp?.savedNotes ?? 0} note(s) sauvegardée(s)${resp?.accountCreated ? " · compte créé" : ""}.`,
       });
       if (resp?.errors?.length) console.warn("[save-grades]", resp.errors);
       try { await onSaved?.(); } catch (e) { console.warn("[onSaved]", e); }
@@ -327,7 +322,6 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
       setSaving(false);
     }
   };
-
 
   const handleReset = () => {
     const updated = { ...entries };
@@ -344,9 +338,22 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
     toast({ title: "Nouvelle saisie", description: "Formulaire vidé." });
   };
 
+  const classeLabel = classeKey
+    ? `${filiere ? filiere : ''} — ${niveau || ''}`
+    : "Aucune classe sélectionnée";
+
   return (
     <div className="space-y-4">
-      {/* Identité étudiant — champs libres */}
+      {/* Avertissement si aucune classe sélectionnée */}
+      {!classeKey && (
+        <Card className="p-4 border-warning bg-warning/10">
+          <p className="text-sm text-warning font-medium">
+            ⚠️ Aucune classe sélectionnée — les matières affichées sont génériques. Sélectionnez un département, une filière et un niveau dans l'en-tête.
+          </p>
+        </Card>
+      )}
+
+      {/* Identité étudiant */}
       <Card className="p-4 shadow-card-soft border-border/60">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-primary">Identité de l'étudiant</h3>
@@ -450,7 +457,7 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
               Saisie des notes — {identity.nom || "—"} {identity.prenom}
             </h3>
             <p className="text-xs opacity-90">
-              CC <strong>40%</strong> · Examen <strong>60%</strong> · Rattrapage : remplace si supérieur
+              CC <strong>40%</strong> · Examen <strong>60%</strong> · Rattrapage : remplace si supérieur · Classe : <strong>{classeLabel}</strong>
             </p>
           </div>
           <div className="text-right text-xs opacity-90">
@@ -474,7 +481,7 @@ export const GradeEntry = ({ onSaved, onGoToDashboard }: GradeEntryProps = {}) =
             </thead>
             <tbody>
               {subjects.map((s, i) => {
-                const e = current[s.key];
+                const e = current[s.key] || { cc: "", exam: "", rattrapage: "" };
                 const m = moyMatiere(e);
                 const err = errors[s.key];
                 const hasRat = e.rattrapage.trim() !== "";

@@ -2,13 +2,11 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 /**
- * Exporte un bulletin en PDF A4 sur UNE seule page.
- * On adapte l'échelle pour que tout le contenu rentre sans débordement.
+ * Génère le PDF A4 d'un bulletin à partir de son élément DOM.
  */
-export const exportBulletinToPDF = async (
-  element: HTMLElement,
-  filename: string
-) => {
+export const generateBulletinPDF = async (
+  element: HTMLElement
+): Promise<jsPDF> => {
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
@@ -47,5 +45,16 @@ export const exportBulletinToPDF = async (
   const y = margin;
 
   pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight, undefined, "FAST");
+  return pdf;
+};
+
+/**
+ * Exporte un bulletin en PDF A4 sur UNE seule page.
+ */
+export const exportBulletinToPDF = async (
+  element: HTMLElement,
+  filename: string
+) => {
+  const pdf = await generateBulletinPDF(element);
   pdf.save(filename);
 };

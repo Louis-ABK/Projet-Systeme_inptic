@@ -19,11 +19,12 @@ type IncomingStudent = {
   lieuNaissance?: string;
   bac?: string;
   etablissement?: string;
+  classeKey?: string; // e.g. "GI-L3"
   s5?: Record<string, number>; // { matiereCode: note }
   s6?: Record<string, number>;
 };
 
-type Payload = { students: IncomingStudent[] };
+type Payload = { students: IncomingStudent[]; defaultClasseKey?: string };
 
 const slug = (s: string) =>
   String(s ?? "")
@@ -98,10 +99,17 @@ Deno.serve(async (req) => {
     // 1) Charger référentiel matières (code → id)
     const { data: matieres } = await admin
       .from("matieres")
-      .select("id, code");
+      .select("id, code, classe_id");
     const matiereByCode = new Map<string, string>(
       (matieres ?? []).map((m: any) => [m.code, m.id])
     );
+    
+    // Charger référentiel classes (code → id)
+    const { data: classes } = await admin.from("classes").select("id, code");
+    const classeByCode = new Map<string, string>(
+      (classes ?? []).map((c: any) => [c.code, c.id])
+    );
+    const defaultClasseId = body.defaultClasseKey ? classeByCode.get(body.defaultClasseKey) : undefined;
 
     let createdAccounts = 0;
     let createdStudents = 0;
@@ -121,8 +129,13 @@ Deno.serve(async (req) => {
 
         const email = `${slug(prenom)}.${slug(nom)}@inptic.ga`;
 
-        // 2) Upsert étudiant (avec champs identité complets)
-        const identityFields = {
+        // 2) Upsert étudiant (avec champs identité complets + classe)
+        let classe_id = defaultClasseId;
+        if (s.classeKey && classeByCode.has(s.classeKey)) {
+          classe_id = classeByCode.get(s.classeKey);
+        }
+
+        const identityFields: any = {
           nom,
           prenom,
           date_naissance: s.dateNaissance || null,
@@ -130,6 +143,10 @@ Deno.serve(async (req) => {
           bac: s.bac || null,
           etablissement: s.etablissement || null,
         };
+        
+        if (classe_id) {
+            identityFields.classe_id = classe_id;
+        }
 
         const { data: existing } = await admin
           .from("etudiants")
@@ -145,6 +162,8 @@ Deno.serve(async (req) => {
           if (s.lieuNaissance) updateFields.lieu_naissance = s.lieuNaissance;
           if (s.bac) updateFields.bac = s.bac;
           if (s.etablissement) updateFields.etablissement = s.etablissement;
+          if (classe_id) updateFields.classe_id = classe_id;
+          
           await admin
             .from("etudiants")
             .update(updateFields)
@@ -207,16 +226,32 @@ Deno.serve(async (req) => {
         for (const g of allGrades) {
           const matId = matiereByCode.get(g.code);
           if (!matId) {
-            errors.push(`${matricule}/${g.code} : matière inconnue`);
-            continue;
+            // Création de la matière à la volée si nécessaire et si classe_id est dispo
+            if (classe_id) {
+                const { data: newMat, error: errNewMat } = await admin.from("matieres").insert({ code: g.code, libelle: g.code, coef: 1, credits: 1, classe_id: classe_id }).select("id").single();
+                if (!errNewMat && newMat) {
+                    matiereByCode.set(g.code, newMat.id);
+                    // Continuer avec la nouvelle matière
+                } else {
+                    errors.push(`${matricule}/${g.code} : matière inconnue et impossible à créer`);
+                    continue;
+                }
+            } else {
+                errors.push(`${matricule}/${g.code} : matière inconnue`);
+                continue;
+            }
           }
+          
+          const finalMatId = matiereByCode.get(g.code);
+          if(!finalMatId) continue;
+          
           const noteClamped = Math.max(0, Math.min(20, Number(g.note)));
           const { error: upErr } = await admin
             .from("evaluations")
             .upsert(
               {
                 etudiant_id: etudiantId,
-                matiere_id: matId,
+                matiere_id: finalMatId,
                 type: "examen",
                 note: noteClamped,
               },

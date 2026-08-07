@@ -1,38 +1,12 @@
-/**
- * Récupération des étudiants + notes depuis Supabase.
- * Reconstruit la structure Student attendue par les composants existants.
- *
- * Règle de calcul de la note finale par matière :
- *  - Si CC + Examen : base = CC*0.4 + Examen*0.6
- *  - Sinon : la note disponible (Examen seul, CC seul, ou Rattrapage seul)
- *  - Si Rattrapage présent : note finale = max(base, Rattrapage)
- */
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Student,
-  S5Grades,
-  S6Grades,
-  S5_SUBJECTS,
-  S6_SUBJECTS,
-} from "@/data/students";
-
-const buildEmptyS5 = (): S5Grades => {
-  const o: any = { moyenne: 0 };
-  S5_SUBJECTS.forEach((s) => (o[s.key] = 0));
-  return o as S5Grades;
-};
-const buildEmptyS6 = (): S6Grades => {
-  const o: any = { moyenne: 0 };
-  S6_SUBJECTS.forEach((s) => (o[s.key] = 0));
-  return o as S6Grades;
-};
+import { Student } from "@/data/students";
+import { ClasseKey, getSubjects, buildEmptyGrades, FILIERES_MAP } from "@/data/referentiel";
 
 const computeMoy = (
   grades: Record<string, number>,
   subjects: readonly { key: string; coef: number }[]
 ): number => {
-  let sum = 0,
-    coef = 0;
+  let sum = 0, coef = 0;
   subjects.forEach((s) => {
     const v = grades[s.key];
     if (typeof v === "number" && !isNaN(v) && v > 0) {
@@ -60,18 +34,25 @@ const finalNoteForSubject = (e: EvalEntry): number => {
   return base ?? 0;
 };
 
-export const fetchStudents = async (): Promise<Student[]> => {
+export const fetchStudents = async (classeKey?: ClasseKey | null): Promise<Student[]> => {
+  let etudiantsQuery = supabase
+    .from("etudiants")
+    .select(`
+      id, matricule, nom, prenom, date_naissance, lieu_naissance, bac, etablissement,
+      classes(code, niveau, filieres(code))
+    `)
+    .order("matricule");
+
+  if (classeKey) {
+    etudiantsQuery = etudiantsQuery.eq("classes.code", classeKey);
+  }
+
   const [
     { data: etudiants, error: eErr },
     { data: matieres, error: mErr },
     { data: evaluations, error: vErr },
   ] = await Promise.all([
-    supabase
-      .from("etudiants")
-      .select(
-        "id, matricule, nom, prenom, date_naissance, lieu_naissance, bac, etablissement"
-      )
-      .order("matricule"),
+    etudiantsQuery,
     supabase.from("matieres").select("id, code"),
     supabase.from("evaluations").select("etudiant_id, matiere_id, note, type"),
   ]);
@@ -83,7 +64,6 @@ export const fetchStudents = async (): Promise<Student[]> => {
   const codeById = new Map<string, string>();
   (matieres ?? []).forEach((m: any) => codeById.set(m.id, m.code));
 
-  // Pour chaque étudiant : map code -> {cc, examen, rattrapage}
   const evalByStudent = new Map<string, Map<string, EvalEntry>>();
   (evaluations ?? []).forEach((ev: any) => {
     const code = codeById.get(ev.matiere_id);
@@ -99,40 +79,55 @@ export const fetchStudents = async (): Promise<Student[]> => {
     m.set(code, cur);
   });
 
-  const s5Codes = new Set(S5_SUBJECTS.map((s) => s.key));
-  const s6Codes = new Set(S6_SUBJECTS.map((s) => s.key));
+  const students: Student[] = (etudiants ?? [])
+    // Si classeKey est fourni mais la condition eq de Supabase n'a pas tout filtré correctement (parfois le left join ramène quand même l'étudiant avec classe null)
+    .filter((e: any) => !classeKey || e.classes?.code === classeKey)
+    .map((e: any) => {
+      const eClasseKey = e.classes?.code;
+      const s5Subjects = getSubjects(eClasseKey, 's5');
+      const s6Subjects = getSubjects(eClasseKey, 's6');
+      
+      const s5Codes = new Set(s5Subjects.map((s) => s.key));
+      const s6Codes = new Set(s6Subjects.map((s) => s.key));
 
-  const students: Student[] = (etudiants ?? []).map((e: any) => {
-    const s5: any = buildEmptyS5();
-    const s6: any = buildEmptyS6();
-    const notes = evalByStudent.get(e.id);
-    if (notes) {
-      notes.forEach((entry, code) => {
-        const finale = finalNoteForSubject(entry);
-        if (s5Codes.has(code as any)) s5[code] = finale;
-        else if (s6Codes.has(code as any)) s6[code] = finale;
-      });
-    }
-    s5.moyenne = computeMoy(s5, S5_SUBJECTS as any);
-    s6.moyenne = computeMoy(s6, S6_SUBJECTS as any);
-    let moyenneGenerale = 0;
-    if (s5.moyenne > 0 && s6.moyenne > 0)
-      moyenneGenerale = +((s5.moyenne + s6.moyenne) / 2).toFixed(2);
-    else if (s5.moyenne > 0) moyenneGenerale = s5.moyenne;
-    else if (s6.moyenne > 0) moyenneGenerale = s6.moyenne;
-    return {
-      matricule: e.matricule,
-      nom: e.nom,
-      prenom: e.prenom,
-      dateNaissance: e.date_naissance,
-      lieuNaissance: e.lieu_naissance,
-      bac: e.bac,
-      etablissement: e.etablissement,
-      s5,
-      s6,
-      moyenneGenerale,
-    };
-  });
+      const s5 = buildEmptyGrades(eClasseKey, 's5');
+      const s6 = buildEmptyGrades(eClasseKey, 's6');
+
+      const notes = evalByStudent.get(e.id);
+      if (notes) {
+        notes.forEach((entry, code) => {
+          const finale = finalNoteForSubject(entry);
+          if (s5Codes.has(code)) s5[code] = finale;
+          else if (s6Codes.has(code)) s6[code] = finale;
+        });
+      }
+
+      s5.moyenne = computeMoy(s5, s5Subjects);
+      s6.moyenne = computeMoy(s6, s6Subjects);
+
+      let moyenneGenerale = 0;
+      if (s5.moyenne > 0 && s6.moyenne > 0)
+        moyenneGenerale = +((s5.moyenne + s6.moyenne) / 2).toFixed(2);
+      else if (s5.moyenne > 0) moyenneGenerale = s5.moyenne;
+      else if (s6.moyenne > 0) moyenneGenerale = s6.moyenne;
+
+      return {
+        matricule: e.matricule,
+        nom: e.nom,
+        prenom: e.prenom,
+        dateNaissance: e.date_naissance,
+        lieuNaissance: e.lieu_naissance,
+        bac: e.bac,
+        etablissement: e.etablissement,
+        classeKey: eClasseKey,
+        niveau: e.classes?.niveau,
+        filiere: e.classes?.filieres?.code,
+        departement: e.classes?.filieres?.code ? FILIERES_MAP[e.classes.filieres.code]?.dept : undefined,
+        s5,
+        s6,
+        moyenneGenerale,
+      };
+    });
 
   return students;
 };

@@ -1,9 +1,12 @@
-import { Student, S5_SUBJECTS, S6_SUBJECTS, getDecision, getMention, getCreditsS5, getCreditsS6 } from "@/data/students";
+import { Student, getDecision, getMention, getCreditsS5, getCreditsS6 } from "@/data/students";
+import { getSubjects } from "@/data/referentiel";
+import { useClasse } from "@/contexts/ClasseContext";
 import { Grade } from "./Grade";
 import { Button } from "./ui/button";
 import { FileText } from "lucide-react";
 import { Card } from "./ui/card";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 interface Props {
   students: Student[];
@@ -12,6 +15,11 @@ interface Props {
 }
 
 export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
+  const { classeKey } = useClasse();
+
+  const subjectsS5 = useMemo(() => getSubjects(classeKey, "s5"), [classeKey]);
+  const subjectsS6 = useMemo(() => getSubjects(classeKey, "s6"), [classeKey]);
+
   if (view === "annuel") {
     return (
       <Card className="overflow-hidden shadow-elegant border-border/50">
@@ -32,7 +40,7 @@ export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
             </thead>
             <tbody>
               {students.map((s, i) => {
-                const decision = getDecision(s.moyenneGenerale, s.s5.moyenne, s.s6.moyenne);
+                const decision = getDecision(s.moyenneGenerale, s.s5.moyenne, s.s6.moyenne, s);
                 const credits = getCreditsS5(s) + getCreditsS6(s);
                 const mention = getMention(s.moyenneGenerale);
                 return (
@@ -76,7 +84,7 @@ export const GradesTable = ({ students, view, onShowBulletin }: Props) => {
     );
   }
 
-  const subjects = view === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
+  const subjects = view === "s5" ? subjectsS5 : subjectsS6;
   const moyKey = view === "s5" ? "Moyenne S5" : "Moyenne S6";
 
   return (
@@ -164,4 +172,3 @@ function shortLabel(s: string) {
   };
   return map[s] || s;
 }
-

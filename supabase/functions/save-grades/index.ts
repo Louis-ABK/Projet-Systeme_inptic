@@ -25,6 +25,7 @@ type Payload = {
     lieuNaissance?: string;
     bac?: string;
     etablissement?: string;
+    classeKey?: string;
   };
   semestre: "s5" | "s6";
   absenceHeures?: number;
@@ -98,6 +99,7 @@ Deno.serve(async (req) => {
     const matricule = String(identity?.matricule || "").trim();
     const nom = String(identity?.nom || "").trim();
     const prenom = String(identity?.prenom || "").trim();
+    const classeKey = identity?.classeKey;
 
     if (!matricule || !nom || !prenom) {
       return new Response(
@@ -112,6 +114,11 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Charger référentiel classes
+    const { data: classes } = await admin.from("classes").select("id, code");
+    const classeByCode = new Map<string, string>((classes ?? []).map((c: any) => [c.code, c.id]));
+    const classe_id = classeKey ? classeByCode.get(classeKey) : undefined;
+
     // 1) Upsert étudiant
     const { data: existing } = await admin
       .from("etudiants")
@@ -119,7 +126,7 @@ Deno.serve(async (req) => {
       .eq("matricule", matricule)
       .maybeSingle();
 
-    const identityFields = {
+    const identityFields: any = {
       nom,
       prenom,
       date_naissance: identity.dateNaissance || null,
@@ -127,6 +134,9 @@ Deno.serve(async (req) => {
       bac: identity.bac || null,
       etablissement: identity.etablissement || null,
     };
+    if (classe_id) {
+        identityFields.classe_id = classe_id;
+    }
 
     let etudiantId: string;
     let accountCreated = false;
@@ -171,20 +181,34 @@ Deno.serve(async (req) => {
     }
 
     // 3) Charger référentiel matières
-    const { data: matieres } = await admin.from("matieres").select("id, code");
+    const { data: matieres } = await admin.from("matieres").select("id, code, classe_id");
     const matiereByCode = new Map<string, string>(
       (matieres ?? []).map((m: any) => [m.code, m.id])
     );
 
     let savedNotes = 0;
     const errors: string[] = [];
+    let firstMatIdForAbsence: string | undefined;
 
     for (const [code, vals] of Object.entries(notes || {})) {
-      const matId = matiereByCode.get(code);
+      let matId = matiereByCode.get(code);
       if (!matId) {
-        errors.push(`Matière inconnue: ${code}`);
-        continue;
+          if (classe_id) {
+              const { data: newMat, error: errNewMat } = await admin.from("matieres").insert({ code: code, libelle: code, coef: 1, credits: 1, classe_id: classe_id }).select("id").single();
+              if (newMat) {
+                  matiereByCode.set(code, newMat.id);
+                  matId = newMat.id;
+              } else {
+                  errors.push(`Matière inconnue et impossible à créer: ${code}`);
+                  continue;
+              }
+          } else {
+              errors.push(`Matière inconnue: ${code}`);
+              continue;
+          }
       }
+      if (!firstMatIdForAbsence) firstMatIdForAbsence = matId;
+
       const triplets: Array<["cc" | "examen" | "rattrapage", number | null | undefined]> = [
         ["cc", vals.cc],
         ["examen", vals.examen],
@@ -209,30 +233,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4) Absences (cumulées sur l'ensemble du semestre — on stocke côté "matiere fictive" ?
-    //    Le schéma absences attend matiere_id. On enregistre sur la 1ère matière du semestre
-    //    pour conserver une trace globale. Le calcul du malus reste côté client.
-    if (typeof absenceHeures === "number" && absenceHeures > 0) {
-      const semCodes = semestre === "s5"
-        ? ["anglais", "management", "communication", "droit", "gestionProjets", "veille",
-           "programmation", "bdd", "ios", "lan", "scripts", "virtualisation",
-           "clientServeur", "telephonie", "svaa"]
-        : ["windows", "linux", "interop", "cryptage", "prevention",
-           "accesDistant", "ccna3", "methodologie", "soutenance"];
-      const firstMat = semCodes.map((c) => matiereByCode.get(c)).find(Boolean);
-      if (firstMat) {
-        // upsert manuel : delete + insert
-        await admin
-          .from("absences")
-          .delete()
-          .eq("etudiant_id", etudiantId)
-          .eq("matiere_id", firstMat);
-        await admin.from("absences").insert({
-          etudiant_id: etudiantId,
-          matiere_id: firstMat,
-          heures: absenceHeures,
-        });
-      }
+    // 4) Absences
+    if (typeof absenceHeures === "number" && absenceHeures > 0 && firstMatIdForAbsence) {
+      await admin
+        .from("absences")
+        .delete()
+        .eq("etudiant_id", etudiantId)
+        .eq("matiere_id", firstMatIdForAbsence);
+      await admin.from("absences").insert({
+        etudiant_id: etudiantId,
+        matiere_id: firstMatIdForAbsence,
+        heures: absenceHeures,
+      });
     }
 
     return new Response(

@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
-import { Student, S5_SUBJECTS, S6_SUBJECTS } from "@/data/students";
+import { Student } from "@/data/students";
+import { getSubjects, ClasseKey } from "@/data/referentiel";
 
 export type ImportResult = {
   students: Student[];
@@ -20,16 +21,13 @@ const matchSubjectKey = (
 ): string | null => {
   const h = norm(header);
   if (!h) return null;
-  // Essai sur le label (exact ou inclus)
   for (const s of subjects) {
-    const nl = norm(s.label);
-    if (nl === h) return s.key;
+    if (norm(s.label) === h) return s.key;
   }
   for (const s of subjects) {
     const nl = norm(s.label);
     if (nl.includes(h) || h.includes(nl)) return s.key;
   }
-  // Essai sur la clé
   for (const s of subjects) {
     const nk = norm(s.key);
     if (nk === h || h.includes(nk) || nk.includes(h)) return s.key;
@@ -50,8 +48,7 @@ const computeMoyenne = (
   grades: Record<string, number>,
   subjects: readonly { key: string; coef: number }[]
 ): number => {
-  let sum = 0,
-    coef = 0;
+  let sum = 0, coef = 0;
   subjects.forEach((s) => {
     const v = grades[s.key];
     if (typeof v === "number" && !isNaN(v)) {
@@ -79,7 +76,6 @@ const IDENT_HEADERS = new Set(
     "nom", "name", "lastname",
     "prenom", "firstname",
     "etudiant", "student", "nomprenom", "nometprenom",
-    // Identity extra (à ne PAS interpréter comme matière)
     "datedenaissance", "datenaissance", "dateneenaissance", "dn", "naissance",
     "lieudenaissance", "lieunaissance", "lieu",
     "bac", "typedebac", "typedubaccalaureat", "baccalaureat", "typebac",
@@ -87,25 +83,20 @@ const IDENT_HEADERS = new Set(
   ].map(norm)
 );
 
-// Convertit une valeur de date Excel (number ou string) en ISO yyyy-mm-dd
 const toDateString = (v: any): string => {
   if (v === null || v === undefined || v === "") return "";
-  // Excel serial date
   if (typeof v === "number" && v > 1000) {
-    // Excel epoch = 1899-12-30
     const ms = Math.round((v - 25569) * 86400 * 1000);
     const d = new Date(ms);
     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   }
   const s = String(v).trim();
-  // Format dd/mm/yyyy ou dd-mm-yyyy
   const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
   if (m) {
     let [_, dd, mm, yy] = m;
     if (yy.length === 2) yy = (parseInt(yy) > 30 ? "19" : "20") + yy;
     return `${yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   }
-  // Format yyyy-mm-dd déjà ok
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   return s;
 };
@@ -137,19 +128,11 @@ const parseSheet = (
         prenom = parts.slice(1).join(" ");
       }
     }
-    const dateRaw = findCol(r, [
-      "Date de naissance", "Date naissance", "DateNaissance", "Né(e) le", "Ne le", "DN", "Naissance",
-    ]);
+    const dateRaw = findCol(r, ["Date de naissance", "Date naissance", "DateNaissance", "Né(e) le", "Ne le", "DN", "Naissance"]);
     const dateNaissance = dateRaw ? toDateString(dateRaw) : "";
-    const lieuNaissance = findCol(r, [
-      "Lieu de naissance", "Lieu naissance", "LieuNaissance", "Lieu",
-    ]);
-    const bac = findCol(r, [
-      "Type de baccalauréat", "Type de baccalaureat", "Type bac", "Bac", "Baccalauréat", "Baccalaureat",
-    ]);
-    const etablissement = findCol(r, [
-      "Établissement d'origine", "Etablissement d'origine", "Établissement", "Etablissement", "École", "Ecole", "Lycée d'origine", "Lycée", "Lycee",
-    ]);
+    const lieuNaissance = findCol(r, ["Lieu de naissance", "Lieu naissance", "LieuNaissance", "Lieu"]);
+    const bac = findCol(r, ["Type de baccalauréat", "Type de baccalaureat", "Type bac", "Bac", "Baccalauréat", "Baccalaureat"]);
+    const etablissement = findCol(r, ["Établissement d'origine", "Etablissement d'origine", "Établissement", "Etablissement", "École", "Ecole", "Lycée d'origine", "Lycée", "Lycee"]);
 
     const grades: Record<string, number> = {};
     Object.keys(r).forEach((header) => {
@@ -184,13 +167,16 @@ const parseSheet = (
 };
 
 /** Détermine si une feuille est S5 ou S6 par son nom + contenu */
-const detectSemester = (name: string, ws: XLSX.WorkSheet): "s5" | "s6" | null => {
+const detectSemester = (name: string, ws: XLSX.WorkSheet, classeKey?: ClasseKey | null): "s5" | "s6" | null => {
   const n = norm(name);
   if (/(s5|sem.*5|semestre5)/.test(n)) return "s5";
   if (/(s6|sem.*6|semestre6)/.test(n)) return "s6";
+  
   // Heuristique par contenu : compter les matières détectées
-  const s5 = parseSheet(ws, S5_SUBJECTS);
-  const s6 = parseSheet(ws, S6_SUBJECTS);
+  const s5Subjects = getSubjects(classeKey, "s5");
+  const s6Subjects = getSubjects(classeKey, "s6");
+  const s5 = parseSheet(ws, s5Subjects);
+  const s6 = parseSheet(ws, s6Subjects);
   if (s5.matched === 0 && s6.matched === 0) return null;
   return s5.matched >= s6.matched ? "s5" : "s6";
 };
@@ -198,9 +184,11 @@ const detectSemester = (name: string, ws: XLSX.WorkSheet): "s5" | "s6" | null =>
 /**
  * Importe un ou plusieurs fichiers Excel et fusionne les données.
  * Auto-détection du semestre par nom de feuille OU par contenu.
+ * Supporte les matières dynamiques selon classeKey.
  */
 export const importStudentsFromExcel = async (
-  files: File | File[]
+  files: File | File[],
+  classeKey?: ClasseKey | null
 ): Promise<ImportResult> => {
   const list = Array.isArray(files) ? files : [files];
   const warnings: string[] = [];
@@ -218,6 +206,9 @@ export const importStudentsFromExcel = async (
   };
   const identityMap = new Map<string, Identity>();
 
+  const s5Subjects = getSubjects(classeKey, "s5");
+  const s6Subjects = getSubjects(classeKey, "s6");
+
   for (const file of list) {
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: "array" });
@@ -225,9 +216,9 @@ export const importStudentsFromExcel = async (
 
     for (const sheetName of wb.SheetNames) {
       const ws = wb.Sheets[sheetName];
-      const sem = detectSemester(sheetName, ws);
+      const sem = detectSemester(sheetName, ws, classeKey);
       if (!sem) continue;
-      const subjects = sem === "s5" ? S5_SUBJECTS : S6_SUBJECTS;
+      const subjects = sem === "s5" ? s5Subjects : s6Subjects;
       const { rows } = parseSheet(ws, subjects);
       const target = sem === "s5" ? s5Map : s6Map;
       let added = 0;
@@ -259,7 +250,7 @@ export const importStudentsFromExcel = async (
   if (s5Map.size === 0) warnings.push("Aucune donnée Semestre 5 trouvée.");
   if (s6Map.size === 0) warnings.push("Aucune donnée Semestre 6 trouvée.");
 
-  // Fusion : on prend l'union des matricules
+  // Fusion : union des matricules
   const allKeys = new Set<string>([...s5Map.keys(), ...s6Map.keys()]);
   const students: Student[] = [];
 
@@ -268,17 +259,18 @@ export const importStudentsFromExcel = async (
     const s5Row = s5Map.get(key);
     const s6Row = s6Map.get(key);
 
-    const s5Full: any = { moyenne: 0 };
-    S5_SUBJECTS.forEach((s) => {
+    // Construire les objets de notes dynamiquement
+    const s5Full: Record<string, number> = { moyenne: 0 };
+    s5Subjects.forEach((s) => {
       s5Full[s.key] = s5Row?.grades[s.key] ?? 0;
     });
-    s5Full.moyenne = s5Row ? computeMoyenne(s5Row.grades, S5_SUBJECTS as any) : 0;
+    s5Full.moyenne = s5Row ? computeMoyenne(s5Row.grades, s5Subjects) : 0;
 
-    const s6Full: any = { moyenne: 0 };
-    S6_SUBJECTS.forEach((s) => {
+    const s6Full: Record<string, number> = { moyenne: 0 };
+    s6Subjects.forEach((s) => {
       s6Full[s.key] = s6Row?.grades[s.key] ?? 0;
     });
-    s6Full.moyenne = s6Row ? computeMoyenne(s6Row.grades, S6_SUBJECTS as any) : 0;
+    s6Full.moyenne = s6Row ? computeMoyenne(s6Row.grades, s6Subjects) : 0;
 
     const matricule = (s5Row?.matricule || s6Row?.matricule || key).trim();
 
@@ -295,6 +287,7 @@ export const importStudentsFromExcel = async (
       lieuNaissance: id.lieuNaissance || s5Row?.lieuNaissance || s6Row?.lieuNaissance || null,
       bac: id.bac || s5Row?.bac || s6Row?.bac || null,
       etablissement: id.etablissement || s5Row?.etablissement || s6Row?.etablissement || null,
+      classeKey: classeKey || undefined,
       s5: s5Full,
       s6: s6Full,
       moyenneGenerale,
@@ -304,7 +297,6 @@ export const importStudentsFromExcel = async (
     if (!s6Row) warnings.push(`${matricule} : pas de notes S6 (mises à 0).`);
   });
 
-  // Tri par matricule
   students.sort((a, b) => a.matricule.localeCompare(b.matricule));
 
   return { students, warnings, info };
