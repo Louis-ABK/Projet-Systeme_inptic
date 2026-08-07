@@ -15,22 +15,28 @@ const norm = (s: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
 
-const matchSubjectKey = (
-  header: string,
-  subjects: readonly { key: string; label: string }[]
-): string | null => {
+const matchSubjectKey = (header: string, subjects: any[]) => {
   const h = norm(header);
-  if (!h) return null;
+  
+  // 1. Exact or include match
+  const found = subjects.find(s => h.includes(norm(s.label)) || norm(s.label).includes(h));
+  if (found) return found.key;
+  
+  // 2. Word-level fuzzy matching
   for (const s of subjects) {
-    if (norm(s.label) === h) return s.key;
-  }
-  for (const s of subjects) {
-    const nl = norm(s.label);
-    if (nl.includes(h) || h.includes(nl)) return s.key;
-  }
-  for (const s of subjects) {
-    const nk = norm(s.key);
-    if (nk === h || h.includes(nk) || nk.includes(h)) return s.key;
+    const sl = norm(s.label);
+    
+    // Extract significant words (length > 3)
+    const headerWords = h.split(/[^a-z0-9]+/).filter(w => w.length > 3);
+    const labelWords = sl.split(/[^a-z0-9]+/).filter(w => w.length > 3);
+    
+    // Check if any significant word matches
+    for (const hw of headerWords) {
+      if (sl.includes(hw)) return s.key;
+    }
+    for (const lw of labelWords) {
+      if (h.includes(lw)) return s.key;
+    }
   }
   return null;
 };
