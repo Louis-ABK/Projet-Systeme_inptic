@@ -233,18 +233,32 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4) Absences
-    if (typeof absenceHeures === "number" && absenceHeures > 0 && firstMatIdForAbsence) {
-      await admin
-        .from("absences")
-        .delete()
-        .eq("etudiant_id", etudiantId)
-        .eq("matiere_id", firstMatIdForAbsence);
-      await admin.from("absences").insert({
-        etudiant_id: etudiantId,
-        matiere_id: firstMatIdForAbsence,
-        heures: absenceHeures,
-      });
+    // 4) Absences : on stocke l'absence (en heures) pour CHAQUE matière du semestre
+    // La pénalité sera appliquée par matière lors du calcul
+    if (typeof absenceHeures === "number" && absenceHeures >= 0) {
+      // Récupérer tous les matIds du semestre traités
+      const allMatIds = Object.entries(notes || {})
+        .map(([code]) => matiereByCode.get(code))
+        .filter(Boolean) as string[];
+      
+      if (allMatIds.length > 0) {
+        // Supprimer les absences existantes pour cet étudiant / ces matières
+        await admin
+          .from("absences")
+          .delete()
+          .eq("etudiant_id", etudiantId)
+          .in("matiere_id", allMatIds);
+
+        // Si absenceHeures > 0, créer une ligne par matière
+        if (absenceHeures > 0) {
+          const absRows = allMatIds.map((matiere_id) => ({
+            etudiant_id: etudiantId,
+            matiere_id,
+            heures: absenceHeures,
+          }));
+          await admin.from("absences").insert(absRows);
+        }
+      }
     }
 
     return new Response(

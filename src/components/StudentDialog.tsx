@@ -104,15 +104,9 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
   useEffect(() => {
     async function loadRealGrades() {
       if (open && student) {
-        const { data: evals } = await supabase
-          .from("evaluations")
-          .select("matiere_id, note, type, matieres(code)")
-          .eq("etudiant_id", student.matricule); // Attendez, etudiant_id est l'UUID de l'étudiant.
-          
-        // Bon, utilisons plutôt la jointure depuis etudiants
         const { data: fullStudent } = await supabase
           .from("etudiants")
-          .select("id, evaluations(note, type, matieres(code))")
+          .select("id, evaluations(note, type, matieres(code)), absences(heures)")
           .eq("matricule", student.matricule)
           .single();
 
@@ -138,6 +132,14 @@ export const StudentDialog = ({ open, onOpenChange, student, onSaved }: StudentD
           
           setNotesS5(ns5);
           setNotesS6(ns6);
+        }
+
+        // Charger les heures d'absence existantes (moyenne des absences du semestre)
+        if (fullStudent?.absences?.length) {
+          const totalHeures = (fullStudent.absences as any[]).reduce((a: number, ab: any) => a + Number(ab.heures), 0);
+          const avgHeures = totalHeures / fullStudent.absences.length;
+          setAbsenceS5(String(avgHeures));
+          setAbsenceS6(String(avgHeures));
         }
       }
     }

@@ -179,8 +179,12 @@ const StudentSpace = () => {
                     0
                   );
                   const moyUE = totalCoef ? sum / totalCoef : 0;
+                  const moyemSem = (grades as any).moyenne || 0;
                   const totalCredUE = ueSubjects.reduce((a, b) => a + b.credits, 0);
-                  const validated = moyUE >= 10 || ((grades as any).moyenne || 0) >= 10;
+                  // Règle compensation : UE acquise si moyUE >= 10, ou par compensation si moy semestre >= 10
+                  const ueAcquise = moyUE >= 10;
+                  const ueCompensee = !ueAcquise && moyemSem >= 10;
+                  const ueValidee = ueAcquise || ueCompensee;
                   return (
                     <React.Fragment key={ue}>
                       <tr className="bg-primary/10">
@@ -190,7 +194,7 @@ const StudentSpace = () => {
                         <td className="text-center px-3 py-2">
                           <span className={cn(
                             "inline-block px-2 py-0.5 rounded font-bold tabular-nums",
-                            moyUE >= 10 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                            moyUE >= 10 ? "bg-success/10 text-success" : ueCompensee ? "bg-warning/10 text-warning" : "bg-destructive/10 text-destructive"
                           )}>
                             {moyUE.toFixed(2)}
                           </span>
@@ -198,30 +202,36 @@ const StudentSpace = () => {
                         <td className="text-center px-3 py-2">
                           <span className={cn(
                             "inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold",
-                            validated ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+                            ueAcquise ? "bg-success/15 text-success" : ueCompensee ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
                           )}>
-                            {validated ? "Acquis" : "Non acquis"}
+                            {ueAcquise ? "Acquis" : ueCompensee ? "Compensé" : "Non acquis"}
                           </span>
                         </td>
                       </tr>
-                      {ueSubjects.map((s, i) => (
-                        <tr key={s.key} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
-                          <td className="px-4 py-2 pl-8 text-muted-foreground">{s.label}</td>
-                          <td className="text-center px-3 py-2">{s.credits}</td>
-                          <td className="text-center px-3 py-2">{s.coef.toFixed(2).replace(".", ",")}</td>
-                          <td className="text-center px-3 py-2">
-                            <Grade value={(grades as any)[s.key] || 0} />
-                          </td>
-                          <td className="text-center px-3 py-2">
-                            <span className={cn(
-                              "inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold",
-                              ((grades as any)[s.key] as number) >= 10 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
-                            )}>
-                              {((grades as any)[s.key] as number) >= 10 ? "Validé" : "Non validé"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {ueSubjects.map((s, i) => {
+                        const noteMatiere = (grades as any)[s.key] as number || 0;
+                        // Matière compensée si note < 10 mais UE compensée (moy semestre >= 10)
+                        const matiereValidee = noteMatiere >= 10;
+                        const matiereCompensee = !matiereValidee && ueCompensee;
+                        return (
+                          <tr key={s.key} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
+                            <td className="px-4 py-2 pl-8 text-muted-foreground">{s.label}</td>
+                            <td className="text-center px-3 py-2">{s.credits}</td>
+                            <td className="text-center px-3 py-2">{s.coef.toFixed(2).replace(".", ",")}</td>
+                            <td className="text-center px-3 py-2">
+                              <Grade value={noteMatiere} />
+                            </td>
+                            <td className="text-center px-3 py-2">
+                              <span className={cn(
+                                "inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                                matiereValidee ? "bg-success/15 text-success" : matiereCompensee ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
+                              )}>
+                                {matiereValidee ? "Validé" : matiereCompensee ? "Compensé" : "Non validé"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </React.Fragment>
                   );
                 })}

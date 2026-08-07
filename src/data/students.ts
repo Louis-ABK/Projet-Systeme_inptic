@@ -79,6 +79,7 @@ export const getCredits = (s: Student, sem: 's5' | 's6'): number => {
   const ues = Array.from(new Set(subjects.map(sub => sub.ue)));
   let credits = 0;
   const grades = sem === 's5' ? s.s5 : s.s6;
+  const moyemSem = grades.moyenne || 0;
 
   for (const ue of ues) {
     const ueSubjects = subjects.filter(x => x.ue === ue);
@@ -86,7 +87,8 @@ export const getCredits = (s: Student, sem: 's5' | 's6'): number => {
     const sum = ueSubjects.reduce((a, b) => a + (grades[b.key] || 0) * b.coef, 0);
     const moyUE = totalCoef ? sum / totalCoef : 0;
 
-    if (moyUE >= 10 || grades.moyenne >= 10) {
+    // UE acquise si moyenne UE >= 10, ou par compensation si moyenne semestre >= 10
+    if (moyUE >= 10 || moyemSem >= 10) {
       credits += ueSubjects.reduce((a, b) => a + b.credits, 0);
     }
   }

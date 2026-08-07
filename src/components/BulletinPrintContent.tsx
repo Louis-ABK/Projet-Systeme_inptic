@@ -75,11 +75,16 @@ const SemesterBulletin = ({
     const subs = subjects.filter((s) => s.ue === ue);
     const totalC = subs.reduce((a, b) => a + b.credits, 0);
     const m = ueMoy(ue);
+    const semMoy = grades.moyenne || 0;
+    // UE acquise si moyUE >= 10 ; compensée si moy < 10 mais semestre >= 10
+    const ueAcquise = m >= 10;
+    const ueCompensee = !ueAcquise && semMoy >= 10;
     return {
       name: ue,
       total: totalC,
-      acquired: m >= 10 ? totalC : creditsForUE(ue),
-      compensation: m >= 10,
+      acquired: (ueAcquise || ueCompensee) ? totalC : creditsForUE(ue),
+      ueAcquise,
+      ueCompensee,
     };
   });
   const totalCreditsAcquired = ueData.reduce((a, u) => a + u.acquired, 0);
@@ -236,9 +241,9 @@ const SemesterBulletin = ({
           <tr>
             {ueData.map((u) => (
               <td key={u.name} className="border border-black px-1.5 py-0 text-center text-[8.5px] italic">
-                {u.acquired === u.total
+                {u.ueAcquise
                   ? "UE Acquise"
-                  : u.compensation
+                  : u.ueCompensee
                   ? "UE Acquise par Compensation"
                   : "UE non Acquise"}
               </td>

@@ -25,10 +25,12 @@ const finalNoteForSubject = (e: EvalEntry): number => {
   const hasRat = typeof e.rattrapage === "number" && !isNaN(e.rattrapage);
 
   let base: number | null = null;
+  // Règle : 40% CC + 60% Examen. Si pas de CC → Examen compte pour 100%
   if (hasCC && hasEx) base = e.cc! * 0.4 + e.examen! * 0.6;
-  else if (hasEx) base = e.examen!;
-  else if (hasCC) base = e.cc!;
+  else if (hasEx) base = e.examen!;  // examen seul = 100%
+  else if (hasCC) base = e.cc!;      // cc seul = 100%
 
+  // Règle rattrapage : la note obtenue remplace la moyenne initiale si elle est supérieure
   if (hasRat && base !== null) return Math.max(base, e.rattrapage!);
   if (hasRat) return e.rattrapage!;
   return base ?? 0;
@@ -51,15 +53,18 @@ export const fetchStudents = async (classeKey?: ClasseKey | null): Promise<Stude
     { data: etudiants, error: eErr },
     { data: matieres, error: mErr },
     { data: evaluations, error: vErr },
+    { data: absences },
   ] = await Promise.all([
     etudiantsQuery,
     supabase.from("matieres").select("id, code"),
     supabase.from("evaluations").select("etudiant_id, matiere_id, note, type"),
+    supabase.from("absences").select("etudiant_id, matiere_id, heures"),
   ]);
 
   if (eErr) throw eErr;
   if (mErr) throw mErr;
   if (vErr) throw vErr;
+  // On ne bloque pas si absences échoue (table peut ne pas exister encore)
 
   const codeById = new Map<string, string>();
   (matieres ?? []).forEach((m: any) => codeById.set(m.id, m.code));
@@ -79,6 +84,16 @@ export const fetchStudents = async (classeKey?: ClasseKey | null): Promise<Stude
     m.set(code, cur);
   });
 
+  // Index des absences par étudiant et code matière
+  const absenceByStudent = new Map<string, Map<string, number>>();
+  (absences ?? []).forEach((ab: any) => {
+    const code = codeById.get(ab.matiere_id);
+    if (!code) return;
+    if (!absenceByStudent.has(ab.etudiant_id))
+      absenceByStudent.set(ab.etudiant_id, new Map());
+    absenceByStudent.get(ab.etudiant_id)!.set(code, Number(ab.heures));
+  });
+
   const students: Student[] = (etudiants ?? [])
     // Si classeKey est fourni mais la condition eq de Supabase n'a pas tout filtré correctement (parfois le left join ramène quand même l'étudiant avec classe null)
     .filter((e: any) => !classeKey || e.classes?.code === classeKey)
@@ -94,9 +109,16 @@ export const fetchStudents = async (classeKey?: ClasseKey | null): Promise<Stude
       const s6 = buildEmptyGrades(eClasseKey, 's6');
 
       const notes = evalByStudent.get(e.id);
+      const etudiantAbsences = absenceByStudent.get(e.id);
+
       if (notes) {
         notes.forEach((entry, code) => {
-          const finale = finalNoteForSubject(entry);
+          let finale = finalNoteForSubject(entry);
+          // Règle absence : pénalité 0,01 point/heure, plancher 0/20
+          const heures = etudiantAbsences?.get(code) ?? 0;
+          if (heures > 0) {
+            finale = Math.max(0, finale - heures * 0.01);
+          }
           if (s5Codes.has(code)) s5[code] = finale;
           else if (s6Codes.has(code)) s6[code] = finale;
         });
