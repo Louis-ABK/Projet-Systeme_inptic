@@ -21,6 +21,8 @@ const generateMatricule = (nom: string, prenom: string): string => {
   return `${slug(prenom)}.${slug(nom)}`;
 };
 
+const MATRICULE_HEADERS = ["Matricule", "matricule", "MATRICULE", "N°", "No", "Numéro", "numero", "ID", "id"];
+
 const matchSubjectKey = (header: string, subjects: any[]) => {
   const h = norm(header);
   
@@ -133,7 +135,7 @@ const parseSheet = (
   let matched = 0;
   const out: RowParsed[] = [];
   rows.forEach((r) => {
-    const matricule = findCol(r, ["Matricule", "matricule", "MATRICULE", "N°", "No", "Numéro", "ID"]);
+    const matricule = findCol(r, MATRICULE_HEADERS);
     let nom = findCol(r, ["Nom", "NOM", "nom", "Noms", "noms", "Lastname", "Last name"]);
     let prenom = findCol(r, ["Prenom", "Prénom", "PRENOM", "prenom", "Prénoms", "prenoms", "Firstname", "First name"]);
 
@@ -392,7 +394,7 @@ export const importStudentListFromExcel = async (
         const etablissement = findCol(r, ["Établissement", "Etablissement", "etablissement", "École", "Ecole", "Lycée", "Lycee"]) || undefined;
 
         // Matricule : champ explicite ou auto-génération prenom.nom
-        let matricule = findCol(r, ["Matricule", "matricule", "MATRICULE", "ID", "No"]).trim();
+        let matricule = findCol(r, MATRICULE_HEADERS).trim();
         if (!matricule) {
           matricule = generateMatricule(nom, prenom);
         }
