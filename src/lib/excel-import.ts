@@ -129,7 +129,8 @@ const findCol = (row: any, candidates: string[]): string => {
 
 const parseSheet = (
   ws: XLSX.WorkSheet,
-  subjects: readonly { key: string; label: string; coef: number }[]
+  subjects: readonly { key: string; label: string; coef: number }[],
+  targetSubjectKey?: string
 ): { rows: RowParsed[]; matched: number } => {
   const rows = XLSX.utils.sheet_to_json<any>(ws, { defval: "", raw: true });
   let matched = 0;
@@ -156,15 +157,31 @@ const parseSheet = (
     const grades: Record<string, number> = {};
     Object.keys(r).forEach((header) => {
       if (IDENT_HEADERS.has(norm(header))) return;
-      if (norm(header).includes("moyenne")) return;
+      if (!targetSubjectKey && norm(header).includes("moyenne")) return;
       if (norm(header).includes("naissance")) return;
       if (norm(header).includes("etablissement")) return;
       if (norm(header).includes("sexe")) return;
-      const key = matchSubjectKey(header, subjects);
+
+      let key = matchSubjectKey(header, subjects);
+
+      if (targetSubjectKey && !key) {
+        const nh = norm(header);
+        if (nh.includes("note") || nh.includes("moyenne") || nh.includes("cc") || nh.includes("examen") || nh.includes("total")) {
+          key = targetSubjectKey;
+        }
+      }
+
       if (key) {
         const v = toNumber(r[header]);
         if (v !== null) {
           grades[key] = v;
+          matched++;
+        }
+      } else if (targetSubjectKey) {
+        // Fallback: If targetSubjectKey is provided and we found a numeric value in an unknown column, we take it as the grade
+        const v = toNumber(r[header]);
+        if (v !== null && Object.keys(grades).length === 0) {
+          grades[targetSubjectKey] = v;
           matched++;
         }
       }
@@ -186,9 +203,17 @@ const parseSheet = (
 };
 
 /** Détermine si une feuille est S5 ou S6 par son nom + contenu */
-const detectSemester = (name: string, ws: XLSX.WorkSheet, classeKey?: ClasseKey | null): "s5" | "s6" | null => {
+const detectSemester = (name: string, ws: XLSX.WorkSheet, classeKey?: ClasseKey | null, targetSubjectKey?: string): "s5" | "s6" | null => {
   const n = norm(name);
   const niveau = classeKey?.split('-')[1];
+
+  const s5Subjects = getSubjects(classeKey, "s5");
+  const s6Subjects = getSubjects(classeKey, "s6");
+
+  if (targetSubjectKey) {
+    if (s5Subjects.some(s => s.key === targetSubjectKey)) return "s5";
+    if (s6Subjects.some(s => s.key === targetSubjectKey)) return "s6";
+  }
 
   if (niveau === 'L1') {
     if (/(s1|sem.*1|semestre1)/.test(n)) return "s5";
@@ -202,14 +227,8 @@ const detectSemester = (name: string, ws: XLSX.WorkSheet, classeKey?: ClasseKey 
   }
   
   // Fallback heuristique si le nom ne correspond à rien, on teste le contenu
-  if (/(s5|sem.*5|semestre5)/.test(n)) return "s5";
-  if (/(s6|sem.*6|semestre6)/.test(n)) return "s6";
-  
-  // Heuristique par contenu : compter les matières détectées
-  const s5Subjects = getSubjects(classeKey, "s5");
-  const s6Subjects = getSubjects(classeKey, "s6");
-  const s5 = parseSheet(ws, s5Subjects);
-  const s6 = parseSheet(ws, s6Subjects);
+  const s5 = parseSheet(ws, s5Subjects, targetSubjectKey);
+  const s6 = parseSheet(ws, s6Subjects, targetSubjectKey);
   if (s5.matched === 0 && s6.matched === 0) return null;
   return s5.matched >= s6.matched ? "s5" : "s6";
 };
@@ -221,7 +240,8 @@ const detectSemester = (name: string, ws: XLSX.WorkSheet, classeKey?: ClasseKey 
  */
 export const importStudentsFromExcel = async (
   files: File | File[],
-  classeKey?: ClasseKey | null
+  classeKey?: ClasseKey | null,
+  targetSubjectKey?: string
 ): Promise<ImportResult> => {
   const list = Array.isArray(files) ? files : [files];
   const warnings: string[] = [];
@@ -252,16 +272,24 @@ export const importStudentsFromExcel = async (
 
     for (const sheetName of wb.SheetNames) {
       const ws = wb.Sheets[sheetName];
-      const sem = detectSemester(sheetName, ws, classeKey);
-      if (!sem) continue;
+      const sem = detectSemester(file.name, ws, classeKey, targetSubjectKey);
+      if (!sem) {
+        warnings.push(`Semestre non détecté pour la feuille ${sheetName} de ${file.name}`);
+        continue;
+      }
       const subjects = sem === "s5" ? s5Subjects : s6Subjects;
-      const { rows } = parseSheet(ws, subjects);
+      const { rows } = parseSheet(ws, subjects, targetSubjectKey);
       const target = sem === "s5" ? s5Map : s6Map;
       let added = 0;
       rows.forEach((r) => {
         const key = r.matricule || generateMatricule(r.nom, r.prenom);
         if (!key) return;
-        target.set(key, r);
+        const existing = target.get(key);
+        if (existing) {
+          existing.grades = { ...existing.grades, ...r.grades };
+        } else {
+          target.set(key, r);
+        }
         const prev = identityMap.get(key) || { nom: "", prenom: "" };
         identityMap.set(key, {
           nom: prev.nom || r.nom || "",

@@ -28,7 +28,10 @@ import JSZip from "jszip";
 import { generateBulletinPDF } from "@/lib/pdf-export";
 import { BulletinPrintContent } from "@/components/BulletinPrintContent";
 import { useClasse } from "@/contexts/ClasseContext";
-import { FILIERES_MAP, getSemesterLabels } from "@/data/referentiel";
+import { FILIERES_MAP, getSemesterLabels, getSubjects } from "@/data/referentiel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +61,11 @@ const Index = () => {
   const [printMode, setPrintMode] = useState<"all" | "s5" | "s6" | "annuel">("annuel");
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetting, setResetting] = useState(false);
+
+  // Import Grades States
+  const [isImportGradesDialogOpen, setIsImportGradesDialogOpen] = useState(false);
+  const [importMode, setImportMode] = useState<"global" | "subject">("global");
+  const [targetSubject, setTargetSubject] = useState<string>("all");
 
   // Student CRUD states
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -340,6 +348,7 @@ const Index = () => {
     } finally {
       setImporting(false);
       if (listInputRef.current) listInputRef.current.value = "";
+      setIsImportGradesDialogOpen(false);
     }
   };
 
@@ -353,7 +362,8 @@ const Index = () => {
         title: `Lecture des fichiers… (${files.length})`,
         description: files.map((f) => f.name).join(", "),
       });
-      const { students: parsed, warnings, info } = await importStudentsFromExcel(files, classeKey);
+      const tSubject = importMode === "subject" && targetSubject !== "all" ? targetSubject : undefined;
+      const { students: parsed, warnings, info } = await importStudentsFromExcel(files, classeKey, tSubject);
       if (parsed.length === 0) {
         toast({
           title: "Aucune donnée détectée",
@@ -492,7 +502,17 @@ const Index = () => {
               />
               <Button
                 variant="outline"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (!classeKey) {
+                    toast({
+                      title: "Aucune classe",
+                      description: "Veuillez d'abord sélectionner une classe.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  setIsImportGradesDialogOpen(true);
+                }}
                 disabled={importing || exportingZip}
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                 title="Sélectionnez un ou plusieurs fichiers Excel avec les notes (S5 et/ou S6)"
@@ -812,6 +832,64 @@ const Index = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isImportGradesDialogOpen} onOpenChange={setIsImportGradesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import des notes</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-4">
+            <div className="space-y-2">
+              <Label>Mode d'import</Label>
+              <Select value={importMode} onValueChange={(v: "global" | "subject") => setImportMode(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">Import global (toutes les matières)</SelectItem>
+                  <SelectItem value="subject">Import par matière</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {importMode === "subject" && (
+              <div className="space-y-2">
+                <Label>Matière concernée</Label>
+                <Select value={targetSubject} onValueChange={setTargetSubject}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez une matière..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">-- Sélectionner --</SelectItem>
+                    {getSubjects(classeKey, "s5").map(s => (
+                      <SelectItem key={s.key} value={s.key}>{s.label} (S5)</SelectItem>
+                    ))}
+                    {getSubjects(classeKey, "s6").map(s => (
+                      <SelectItem key={s.key} value={s.key}>{s.label} (S6)</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4">
+              <Button onClick={() => {
+                if (importMode === "subject" && targetSubject === "all") {
+                  toast({
+                    title: "Action requise",
+                    description: "Veuillez sélectionner une matière.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}>
+                Parcourir les fichiers Excel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent>
