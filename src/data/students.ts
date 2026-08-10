@@ -89,7 +89,7 @@ export const getDecision = (
         return { label: 'Diplômé(e)', type: 'admis' };
       if (!ueStageAcquise && credS5 >= 30 && credS6 >= 22)
         return { label: 'Reprise de soutenance', type: 'reprise' };
-      return { label: 'Redouble la Licence 3', type: 'refuse' };
+      return { label: 'Redouble', type: 'refuse' };
     } else {
       // Règles générales pour L1 et L2
       if (moyGen >= 10 && s5 >= 10 && s6 >= 10)
