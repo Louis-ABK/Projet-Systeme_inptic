@@ -9,7 +9,8 @@ const computeMoy = (
   let sum = 0, coef = 0;
   subjects.forEach((s) => {
     const v = grades[s.key];
-    if (typeof v === "number" && !isNaN(v) && v > 0) {
+    // Ignorer -1 (pas de note saisie) et NaN
+    if (typeof v === "number" && v >= 0 && !isNaN(v)) {
       sum += v * s.coef;
       coef += s.coef;
     }
@@ -119,10 +120,12 @@ export const fetchStudents = async (classeKey?: ClasseKey | null): Promise<Stude
           if (heures > 0) {
             finale = Math.max(0, finale - heures * 0.01);
           }
+          // On affecte toujours la note finale (même 0) car l'évaluation existe
           if (s5Codes.has(code)) s5[code] = finale;
           else if (s6Codes.has(code)) s6[code] = finale;
         });
       }
+      // Les sujets sans évaluation restent à -1 (non saisie)
 
       s5.moyenne = computeMoy(s5, s5Subjects);
       s6.moyenne = computeMoy(s6, s6Subjects);

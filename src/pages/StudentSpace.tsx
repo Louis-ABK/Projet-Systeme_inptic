@@ -178,7 +178,14 @@ const StudentSpace = () => {
                     (a, b) => a + (((grades as any)[b.key] as number) || 0) * b.coef,
                     0
                   );
-                  const moyUE = totalCoef ? sum / totalCoef : 0;
+                  const moyUE = (() => {
+                    let s = 0, c = 0;
+                    ueSubjects.forEach(b => {
+                      const v = (grades as any)[b.key] as number;
+                      if (v >= 0) { s += v * b.coef; c += b.coef; }
+                    });
+                    return c ? s / c : 0;
+                  })();
                   const moyemSem = (grades as any).moyenne || 0;
                   const totalCredUE = ueSubjects.reduce((a, b) => a + b.credits, 0);
                   // Note éliminatoire (<=5) dans l'UE → pas de compensation
@@ -224,7 +231,7 @@ const StudentSpace = () => {
                             <td className="text-center px-3 py-2">{s.credits}</td>
                             <td className="text-center px-3 py-2">{s.coef.toFixed(2).replace(".", ",")}</td>
                             <td className="text-center px-3 py-2">
-                              <Grade value={noteMatiere} />
+                              <Grade value={noteMatiere >= 0 ? noteMatiere : -1} />
                             </td>
                             <td className="text-center px-3 py-2">
                               <span className={cn(

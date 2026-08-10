@@ -35,13 +35,16 @@ export const getMention = (moy: number): string => {
 /** Note éliminatoire : toute moyenne de matière <= 5/20 bloque la compensation */
 export const ELIMINATORY_THRESHOLD = 5;
 
-/** Vérifie si une UE contient au moins une note éliminatoire (<= 5) */
+/** Vérifie si une UE contient au moins une note éliminatoire (0 à 5 inclus).
+ *  Les notes à -1 (pas de note saisie) sont ignorées. */
 export const hasEliminatoryInUE = (
   grades: Record<string, number>,
   subjects: readonly { key: string }[]
 ): boolean => subjects.some((s) => {
   const v = grades[s.key];
-  return typeof v === 'number' && v > 0 && v <= ELIMINATORY_THRESHOLD;
+  // -1 = pas de note saisie → on ignore
+  // 0 à ELIMINATORY_THRESHOLD inclus → note éliminatoire
+  return typeof v === 'number' && v >= 0 && v <= ELIMINATORY_THRESHOLD;
 });
 
 /** Vérifie si un semestre contient au moins une note éliminatoire */

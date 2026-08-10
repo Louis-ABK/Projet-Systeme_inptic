@@ -30,9 +30,11 @@ const computePromoStats = (values: number[]) => {
 };
 
 const Note = ({ v, bold = false }: { v: number; bold?: boolean }) => (
-  <span className={cn("tabular-nums", bold && "font-bold", v < 10 && "text-[#c00] font-bold")}>
-    {v.toFixed(2).replace(".", ",")}
-  </span>
+  v < 0
+    ? <span className="text-gray-400 italic">—</span>
+    : <span className={cn("tabular-nums", bold && "font-bold", v < 10 && "text-[#c00] font-bold")}>
+        {v.toFixed(2).replace(".", ",")}
+      </span>
 );
 
 const SemesterBulletin = ({
@@ -57,8 +59,13 @@ const SemesterBulletin = ({
   const ueMoy = (ueName: string) => {
     const subs = subjects.filter((s) => s.ue === ueName);
     const totalCoef = subs.reduce((a, b) => a + b.coef, 0);
-    const sum = subs.reduce((a, b) => a + ((grades as any)[b.key] as number) * b.coef, 0);
-    return totalCoef ? sum / totalCoef : 0;
+    // Ignorer les -1 (notes non saisies) dans le calcul
+    let sum = 0, usedCoef = 0;
+    subs.forEach(b => {
+      const v = (grades as any)[b.key] as number;
+      if (v >= 0) { sum += v * b.coef; usedCoef += b.coef; }
+    });
+    return usedCoef ? sum / usedCoef : 0;
   };
   const ueClassMoy = (ueName: string) => {
     const subs = subjects.filter((s) => s.ue === ueName);
@@ -71,7 +78,11 @@ const SemesterBulletin = ({
 
   const creditsForUE = (ueName: string) => {
     const subs = subjects.filter((s) => s.ue === ueName);
-    return subs.filter((s) => (grades as any)[s.key] >= 10).reduce((a, b) => a + b.credits, 0);
+    // Ne compter que les matières réellement saisies (>= 0) et validées
+    return subs.filter((s) => {
+      const v = (grades as any)[s.key] as number;
+      return v >= 10;
+    }).reduce((a, b) => a + b.credits, 0);
   };
   const ueData = ues.map((ue) => {
     const subs = subjects.filter((s) => s.ue === ue);
@@ -139,7 +150,7 @@ const SemesterBulletin = ({
                         {s.coef.toFixed(2).replace(".", ",")}
                       </td>
                       <td className="border border-black px-1 py-1 text-center">
-                        <Note v={v || 0} />
+                        <Note v={(grades as any)[s.key] ?? -1} />
                       </td>
                       <td className="border border-black px-1 py-1 text-center">
                         <Note v={avgs[s.key] || 0} />

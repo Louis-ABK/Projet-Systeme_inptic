@@ -73,13 +73,14 @@ const GI_L3_S5: SubjectDef[] = [
 const GI_L3_S6: SubjectDef[] = [
   { key: 'windows', label: 'Environnement Windows', credits: 3, coef: 3, ue: 'UE6-1' },
   { key: 'linux', label: 'Environnement Linux', credits: 3, coef: 3, ue: 'UE6-1' },
-  { key: 'interop', label: 'Interopérabilité', credits: 3, coef: 3, ue: 'UE6-1' },
+  { key: 'interop', label: 'Intéropérabilité', credits: 3, coef: 3, ue: 'UE6-1' },
   { key: 'cryptage', label: 'Cryptage et Authentification', credits: 2, coef: 2, ue: 'UE6-1' },
   { key: 'prevention', label: 'Prévention et Sécurité', credits: 3, coef: 3, ue: 'UE6-1' },
   { key: 'accesDistant', label: "Contrôle d'accès distant", credits: 2, coef: 2, ue: 'UE6-1' },
   { key: 'ccna3', label: 'CCNA3', credits: 1, coef: 1, ue: 'UE6-1' },
+  // UE6-2 = 13 crédits pour atteindre le total de 30 (17+13=30)
   { key: 'methodologie', label: 'Méthodologie de rédaction du rapport de stage', credits: 2, coef: 2, ue: 'UE6-2' },
-  { key: 'soutenance', label: 'Soutenance', credits: 8, coef: 8, ue: 'UE6-2' },
+  { key: 'soutenance', label: 'Soutenance', credits: 11, coef: 8, ue: 'UE6-2' },
 ];
 
 // Matières génériques pour les autres filières/niveaux
@@ -385,11 +386,19 @@ export const getSubjects = (classeKey: ClasseKey | null | undefined, sem: 's5' |
   return sem === 's5' ? GENERIC_S5 : GENERIC_S6;
 };
 
+/**
+ * Initialise les notes avec -1 pour signifier "pas de note saisie".
+ * Cela permet de distinguer un vrai 0/20 (note éliminatoire) d'une note absente.
+ */
 export const buildEmptyGrades = (classeKey: ClasseKey | null | undefined, sem: 's5' | 's6'): Record<string, number> => {
   const subjects = getSubjects(classeKey, sem);
   const grades: Record<string, number> = { moyenne: 0 };
   subjects.forEach(s => {
-    grades[s.key] = 0;
+    grades[s.key] = -1; // -1 = pas de note saisie
   });
   return grades;
 };
+
+/** Indique si une valeur de note représente une note réellement saisie (>= 0) */
+export const isGradeSet = (v: number | undefined): boolean =>
+  typeof v === 'number' && v >= 0;
