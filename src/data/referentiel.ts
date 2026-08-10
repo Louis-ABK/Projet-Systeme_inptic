@@ -64,8 +64,8 @@ const GI_L3_S5: SubjectDef[] = [
   { key: 'ios', label: 'Remise à niveau IOS', credits: 2, coef: 2, ue: 'UE5-2' },
   { key: 'lan', label: 'Connaissance des réseaux LAN', credits: 2, coef: 2, ue: 'UE5-2' },
   { key: 'scripts', label: 'Les langages du script', credits: 2, coef: 2, ue: 'UE5-2' },
-  { key: 'virtualisation', label: 'Virtualisation', credits: 4, coef: 3, ue: 'UE5-2' },
-  { key: 'clientServeur', label: 'Application client-serveur', credits: 2, coef: 2, ue: 'UE5-2' },
+  { key: 'virtualisation', label: 'Virtualisation', credits: 3, coef: 3, ue: 'UE5-2' },
+  { key: 'clientServeur', label: 'Application client-serveur', credits: 3, coef: 2, ue: 'UE5-2' },
   { key: 'telephonie', label: 'Téléphonie IP avancée', credits: 2, coef: 2, ue: 'UE5-2' },
   { key: 'svaa', label: 'Services à valeur ajoutée', credits: 2, coef: 2, ue: 'UE5-2' },
 ];
