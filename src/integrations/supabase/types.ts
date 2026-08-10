@@ -56,6 +56,94 @@ export type Database = {
           },
         ]
       }
+      classes: {
+        Row: {
+          id: string
+          code: string
+          libelle: string
+          filiere_id: string | null
+          niveau: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          libelle: string
+          filiere_id?: string | null
+          niveau?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          libelle?: string
+          filiere_id?: string | null
+          niveau?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classes_filiere_id_fkey"
+            columns: ["filiere_id"]
+            isOneToOne: false
+            referencedRelation: "filieres"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      departements: {
+        Row: {
+          id: string
+          code: string
+          libelle: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          libelle: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          libelle?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      filieres: {
+        Row: {
+          id: string
+          code: string
+          libelle: string
+          departement_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          libelle: string
+          departement_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          libelle?: string
+          departement_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "filieres_departement_id_fkey"
+            columns: ["departement_id"]
+            isOneToOne: false
+            referencedRelation: "departements"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       etudiants: {
         Row: {
           bac: string | null
@@ -260,6 +348,7 @@ export type Database = {
           id: string
           libelle: string
           semestre_id: string
+          classe_id: string | null
         }
         Insert: {
           code: string
@@ -267,6 +356,7 @@ export type Database = {
           id?: string
           libelle: string
           semestre_id: string
+          classe_id?: string | null
         }
         Update: {
           code?: string
@@ -274,6 +364,7 @@ export type Database = {
           id?: string
           libelle?: string
           semestre_id?: string
+          classe_id?: string | null
         }
         Relationships: [
           {
@@ -281,6 +372,13 @@ export type Database = {
             columns: ["semestre_id"]
             isOneToOne: false
             referencedRelation: "semestres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ues_classe_id_fkey"
+            columns: ["classe_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
             referencedColumns: ["id"]
           },
         ]

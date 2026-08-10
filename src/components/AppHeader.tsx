@@ -1,13 +1,13 @@
 import logo from "@/assets/logo-inptic.jpg";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router-dom";
 import { ClasseSelector } from "@/components/ClasseSelector";
 import { useClasse } from "@/contexts/ClasseContext";
 import { DEPARTEMENTS, FILIERES_MAP } from "@/data/referentiel";
 
-export const AppHeader = () => {
+export const AppHeader = ({ hideClasseSelector }: { hideClasseSelector?: boolean }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { departement, filiere, niveau } = useClasse();
@@ -44,24 +44,37 @@ export const AppHeader = () => {
           <p className="text-xs opacity-80">Année universitaire</p>
           <p className="text-xl font-bold font-serif">2025 / 2026</p>
         </div>
-        {user && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleLogout}
-            className="ml-2 shrink-0"
-          >
-            <LogOut className="h-4 w-4 mr-1.5" /> Déconnexion
-          </Button>
-        )}
-      </div>
-      {/* Barre de sélection de classe */}
-      <div className="container mx-auto px-4 pb-3">
-        <div className="bg-white/10 rounded-lg px-3 py-2 backdrop-blur-sm">
-          <p className="text-xs opacity-75 mb-1.5">Sélectionner une classe :</p>
-          <ClasseSelector />
+        <div className="flex gap-2 shrink-0">
+          {user?.role === "admin" && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/admin/referentiel")}
+              className="ml-2"
+            >
+              <Settings className="h-4 w-4 mr-1.5" /> Référentiel
+            </Button>
+          )}
+          {user && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4 mr-1.5" /> Déconnexion
+            </Button>
+          )}
         </div>
       </div>
+      {/* Barre de sélection de classe */}
+      {!hideClasseSelector && (
+        <div className="container mx-auto px-4 pb-3">
+          <div className="bg-white/10 rounded-lg px-3 py-2 backdrop-blur-sm">
+            <p className="text-xs opacity-75 mb-1.5">Sélectionner une classe :</p>
+            <ClasseSelector />
+          </div>
+        </div>
+      )}
       <div className="h-1 bg-gradient-to-r from-success via-warning to-primary-light" />
     </header>
   );

@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
 import StudentSpace from "./pages/StudentSpace.tsx";
+import AdminReferentiel from "./pages/AdminReferentiel.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,14 @@ const App = () => (
                 element={
                   <ProtectedRoute role="admin">
                     <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/referentiel"
+                element={
+                  <ProtectedRoute role="admin">
+                    <AdminReferentiel />
                   </ProtectedRoute>
                 }
               />
