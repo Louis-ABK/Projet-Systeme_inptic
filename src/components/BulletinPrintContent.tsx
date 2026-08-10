@@ -284,11 +284,9 @@ const SemesterBulletin = ({
       <p className="text-[11px] mt-1 font-serif">
         <strong>Décision du Jury : </strong>
         <strong className="underline text-black">
-          {hasEliminatory
-            ? 'Redouble'
-            : grades.moyenne >= 10
-              ? `${semLabel} validé`
-              : `${semLabel} non validé`}
+          {!hasEliminatory && grades.moyenne >= 10
+            ? 'Validé'
+            : 'Non Validé'}
         </strong>
       </p>
     </>
