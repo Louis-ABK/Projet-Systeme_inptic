@@ -15,6 +15,12 @@ const norm = (s: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
 
+const generateMatricule = (nom: string, prenom: string): string => {
+  const slug = (s: string) =>
+    String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
+  return `${slug(prenom)}.${slug(nom)}`;
+};
+
 const matchSubjectKey = (header: string, subjects: any[]) => {
   const h = norm(header);
   
@@ -251,7 +257,7 @@ export const importStudentsFromExcel = async (
       const target = sem === "s5" ? s5Map : s6Map;
       let added = 0;
       rows.forEach((r) => {
-        const key = r.matricule || `${norm(r.nom)}_${norm(r.prenom)}`;
+        const key = r.matricule || generateMatricule(r.nom, r.prenom);
         if (!key) return;
         target.set(key, r);
         const prev = identityMap.get(key) || { nom: "", prenom: "" };
@@ -388,9 +394,7 @@ export const importStudentListFromExcel = async (
         // Matricule : champ explicite ou auto-génération prenom.nom
         let matricule = findCol(r, ["Matricule", "matricule", "MATRICULE", "ID", "No"]).trim();
         if (!matricule) {
-          const slug = (s: string) =>
-            String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
-          matricule = `${slug(prenom)}.${slug(nom)}`;
+          matricule = generateMatricule(nom, prenom);
         }
 
         if (!matricule) continue;
