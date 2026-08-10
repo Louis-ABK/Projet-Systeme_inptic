@@ -32,10 +32,10 @@ export const getMention = (moy: number): string => {
   return 'Insuffisant';
 };
 
-/** Note éliminatoire : toute moyenne de matière <= 5/20 bloque la compensation */
-export const ELIMINATORY_THRESHOLD = 5;
+/** Note éliminatoire : note strictement < 6/20 bloque la compensation et entraîne un redoublement */
+export const ELIMINATORY_THRESHOLD = 6;
 
-/** Vérifie si une UE contient au moins une note éliminatoire (0 à 5 inclus).
+/** Vérifie si une UE contient au moins une note éliminatoire (0 à 5,99 — strictement < 6).
  *  Les notes à -1 (pas de note saisie) sont ignorées. */
 export const hasEliminatoryInUE = (
   grades: Record<string, number>,
@@ -43,8 +43,8 @@ export const hasEliminatoryInUE = (
 ): boolean => subjects.some((s) => {
   const v = grades[s.key];
   // -1 = pas de note saisie → on ignore
-  // 0 à ELIMINATORY_THRESHOLD inclus → note éliminatoire
-  return typeof v === 'number' && v >= 0 && v <= ELIMINATORY_THRESHOLD;
+  // 0 à < 6 inclus → note éliminatoire
+  return typeof v === 'number' && v >= 0 && v < ELIMINATORY_THRESHOLD;
 });
 
 /** Vérifie si un semestre contient au moins une note éliminatoire */
@@ -64,11 +64,11 @@ export const getDecision = (
   student?: Student
 ): { label: string; type: 'admis' | 'compensation' | 'reprise' | 'refuse' } => {
   if (student) {
-    // Règle éliminatoire : note <= 5 dans n'importe quelle matière → recalé d'office
+    // Règle éliminatoire : note < 6 dans n'importe quelle matière → redoublement d'office
     const elimS5 = hasEliminatoryInSemester(student, 's5');
     const elimS6 = hasEliminatoryInSemester(student, 's6');
     if (elimS5 || elimS6) {
-      return { label: 'Recalé(e) — note éliminatoire (≤5/20)', type: 'refuse' };
+      return { label: 'Redouble', type: 'refuse' };
     }
 
     const credS5 = getCredits(student, 's5');

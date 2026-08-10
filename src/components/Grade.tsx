@@ -12,7 +12,8 @@ export const Grade = ({ value, className }: GradeProps) => {
   }
   const num = isNaN(value) ? 0 : value;
   const display = num.toFixed(2);
-  const isEliminatory = num >= 0 && num <= 5;
+  // Note éliminatoire : strictement < 6
+  const isEliminatory = num < 6;
   return (
     <span
       className={cn(

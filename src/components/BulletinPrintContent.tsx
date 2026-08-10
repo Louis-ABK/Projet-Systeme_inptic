@@ -5,6 +5,7 @@ import {
   getCreditsS5,
   getCreditsS6,
   hasEliminatoryInUE,
+  hasEliminatoryInSemester,
   ELIMINATORY_THRESHOLD,
 } from "@/data/students";
 import { getSubjects, ClasseKey, getSemesterLabels } from "@/data/referentiel";
@@ -55,6 +56,8 @@ const SemesterBulletin = ({
   const classMoy = sem === "s5" ? classData.s5Moy : classData.s6Moy;
   const avgs = sem === "s5" ? classData.s5 : classData.s6;
   const totalStudents = classData.total;
+  // Y a-t-il au moins une note éliminatoire dans ce semestre ?
+  const hasEliminatory = hasEliminatoryInSemester(student, sem);
 
   const ueMoy = (ueName: string) => {
     const subs = subjects.filter((s) => s.ue === ueName);
@@ -266,11 +269,13 @@ const SemesterBulletin = ({
               </td>
             ))}
             <td className="border border-black px-1.5 py-0 text-center text-[8.5px] italic font-semibold">
-              {grades.moyenne >= 10
-                ? totalCreditsAcquired === totalCreditsMax
-                  ? "Semestre Acquis"
-                  : "Semestre Acquis par Compensation"
-                : "Semestre non Acquis"}
+              {hasEliminatory
+                ? "Semestre non Acquis"
+                : grades.moyenne >= 10
+                  ? totalCreditsAcquired === totalCreditsMax
+                    ? "Semestre Acquis"
+                    : "Semestre Acquis par Compensation"
+                  : "Semestre non Acquis"}
             </td>
           </tr>
         </tbody>
@@ -279,9 +284,11 @@ const SemesterBulletin = ({
       <p className="text-[11px] mt-1 font-serif">
         <strong>Décision du Jury : </strong>
         <strong className="underline text-black">
-          {grades.moyenne >= 10
-            ? `${semLabel} validé`
-            : `${semLabel} non validé`}
+          {hasEliminatory
+            ? 'Redouble'
+            : grades.moyenne >= 10
+              ? `${semLabel} validé`
+              : `${semLabel} non validé`}
         </strong>
       </p>
     </>

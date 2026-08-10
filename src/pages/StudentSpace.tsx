@@ -217,10 +217,11 @@ const StudentSpace = () => {
                         </td>
                       </tr>
                       {ueSubjects.map((s, i) => {
-                        const noteMatiere = (grades as any)[s.key] as number || 0;
+                        // Conserver -1 (pas de note saisie) pour ne pas déclencher faussement l'éliminatoire
+                        const noteMatiere = (grades as any)[s.key] as number ?? -1;
                         const matiereValidee = noteMatiere >= 10;
-                        // Note éliminatoire si > 0 et <= seuil
-                        const matiereEliminatoire = noteMatiere > 0 && noteMatiere <= ELIMINATORY_THRESHOLD;
+                        // Note éliminatoire : saisie (>= 0) ET strictement < 6
+                        const matiereEliminatoire = noteMatiere >= 0 && noteMatiere < ELIMINATORY_THRESHOLD;
                         const matiereCompensee = !matiereValidee && !matiereEliminatoire && ueCompensee;
                         return (
                           <tr key={s.key} className={cn(i % 2 === 0 ? "bg-card" : "bg-muted/30", matiereEliminatoire && "bg-destructive/5")}>
