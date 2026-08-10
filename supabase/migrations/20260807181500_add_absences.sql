@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.absences (
 
 ALTER TABLE public.absences ENABLE ROW LEVEL SECURITY;
 
+DROP TRIGGER IF EXISTS trg_absences_updated ON public.absences;
 CREATE TRIGGER trg_absences_updated BEFORE UPDATE ON public.absences
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -29,6 +30,6 @@ CREATE POLICY "etudiant_read_own_absences" ON public.absences
   USING (
     etudiant_id IN (
       SELECT id FROM public.etudiants
-      WHERE auth_user_id = auth.uid()
+      WHERE user_id = auth.uid()
     )
   );

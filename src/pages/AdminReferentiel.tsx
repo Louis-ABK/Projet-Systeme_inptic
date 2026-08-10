@@ -2,7 +2,11 @@ import { useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { AdminDepartements } from "@/components/admin/AdminDepartements";
+import { AdminFilieres } from "@/components/admin/AdminFilieres";
+import { AdminClasses } from "@/components/admin/AdminClasses";
+import { AdminUEs } from "@/components/admin/AdminUEs";
+import { AdminMatieres } from "@/components/admin/AdminMatieres";
 
 const AdminReferentiel = () => {
   const [activeTab, setActiveTab] = useState("departements");
@@ -30,16 +34,13 @@ const AdminReferentiel = () => {
           <TabsContent value="departements" className="mt-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Départements</CardTitle>
-                    <CardDescription>Gérez les départements de l'établissement.</CardDescription>
-                  </div>
-                  <Button>Nouveau Département</Button>
+                <div>
+                  <CardTitle>Départements</CardTitle>
+                  <CardDescription>Gérez les départements de l'établissement.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
-                <p>En construction...</p>
+                <AdminDepartements />
               </CardContent>
             </Card>
           </TabsContent>
@@ -47,16 +48,13 @@ const AdminReferentiel = () => {
           <TabsContent value="filieres" className="mt-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Filières</CardTitle>
-                    <CardDescription>Gérez les filières rattachées aux départements.</CardDescription>
-                  </div>
-                  <Button>Nouvelle Filière</Button>
+                <div>
+                  <CardTitle>Filières</CardTitle>
+                  <CardDescription>Gérez les filières rattachées aux départements.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
-                <p>En construction...</p>
+                <AdminFilieres />
               </CardContent>
             </Card>
           </TabsContent>
@@ -64,16 +62,13 @@ const AdminReferentiel = () => {
           <TabsContent value="classes" className="mt-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Classes</CardTitle>
-                    <CardDescription>Gérez les classes (niveaux) pour chaque filière.</CardDescription>
-                  </div>
-                  <Button>Nouvelle Classe</Button>
+                <div>
+                  <CardTitle>Classes</CardTitle>
+                  <CardDescription>Gérez les classes (niveaux) pour chaque filière.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
-                <p>En construction...</p>
+                <AdminClasses />
               </CardContent>
             </Card>
           </TabsContent>
@@ -81,16 +76,13 @@ const AdminReferentiel = () => {
           <TabsContent value="ues" className="mt-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Unités d'Enseignement</CardTitle>
-                    <CardDescription>Gérez les UEs pour chaque classe et semestre.</CardDescription>
-                  </div>
-                  <Button>Nouvelle UE</Button>
+                <div>
+                  <CardTitle>Unités d'Enseignement</CardTitle>
+                  <CardDescription>Gérez les UEs pour chaque classe et semestre.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
-                <p>En construction...</p>
+                <AdminUEs />
               </CardContent>
             </Card>
           </TabsContent>
@@ -98,16 +90,13 @@ const AdminReferentiel = () => {
           <TabsContent value="matieres" className="mt-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Matières</CardTitle>
-                    <CardDescription>Gérez les matières et leurs coefficients dans chaque UE.</CardDescription>
-                  </div>
-                  <Button>Nouvelle Matière</Button>
+                <div>
+                  <CardTitle>Matières</CardTitle>
+                  <CardDescription>Gérez les matières et leurs coefficients dans chaque UE.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
-                <p>En construction...</p>
+                <AdminMatieres />
               </CardContent>
             </Card>
           </TabsContent>
