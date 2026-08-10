@@ -49,7 +49,6 @@ export const StudentListTable = ({ students, classeKey, onEdit, onDelete }: Stud
               <TableHead>Prénom</TableHead>
               <TableHead>Date de Naissance</TableHead>
               <TableHead>Lieu de Naissance</TableHead>
-              <TableHead>Sexe</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -61,7 +60,6 @@ export const StudentListTable = ({ students, classeKey, onEdit, onDelete }: Stud
                 <TableCell className="capitalize">{student.prenom}</TableCell>
                 <TableCell>{student.dateNaissance || "-"}</TableCell>
                 <TableCell>{student.lieuNaissance || "-"}</TableCell>
-                <TableCell>{student.sexe || "-"}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
