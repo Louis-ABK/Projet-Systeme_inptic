@@ -271,8 +271,6 @@ const SemesterBulletin = ({
                   ? "UE Acquise"
                   : u.ueCompensee
                   ? "UE Acquise par Compensation"
-                  : u.hasElim
-                  ? "UE non Acquise (Élim.)"
                   : "UE non Acquise"}
               </td>
             ))}
