@@ -120,16 +120,13 @@ export const getCredits = (s: Student, sem: 's5' | 's6'): number => {
     const moyUE = totalCoef ? sum / totalCoef : 0;
 
     const hasElim = hasEliminatoryInUE(grades, ueSubjects);
-    const ueAcquise = moyUE >= 10;
+    const ueAcquise = moyUE >= 10 && !hasElim;
     const ueCompensee = !ueAcquise && moyemSem >= 10 && !hasElim;
 
     if (ueAcquise || ueCompensee) {
-      // Nouvelle règle : le crédit d'une matière avec < ELIMINATORY_THRESHOLD n'est pas attribué
-      credits += ueSubjects.reduce((a, b) => {
-        const v = grades[b.key];
-        const isElim = typeof v === 'number' && v >= 0 && v < ELIMINATORY_THRESHOLD;
-        return a + (isElim ? 0 : b.credits);
-      }, 0);
+      // Si acquise ou compensée, cela signifie qu'il n'y a aucune note < 6.
+      // Donc toutes les matières donnent leurs crédits (même celles entre 6 et 9.99)
+      credits += ueSubjects.reduce((a, b) => a + b.credits, 0);
     } else {
       // UE non acquise, non compensée : on donne quand même les crédits des matières >= 10
       credits += ueSubjects.reduce((a, b) => {
