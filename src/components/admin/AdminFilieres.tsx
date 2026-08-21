@@ -27,7 +27,7 @@ export const AdminFilieres = () => {
   const { data: departements } = useQuery({
     queryKey: ["departements"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("departements").select("id, code, libelle").order("code");
+      const { data, error } = await supabase.from("departements").select("*").order("code");
       if (error) throw error;
       return data;
     },
@@ -59,7 +59,12 @@ export const AdminFilieres = () => {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departements"] });
       queryClient.invalidateQueries({ queryKey: ["filieres"] });
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
+      queryClient.invalidateQueries({ queryKey: ["ues"] });
+      queryClient.invalidateQueries({ queryKey: [ "matieres" ] });
+      queryClient.invalidateQueries({ queryKey: [ "global-referentiel" ] });
       toast.success(editingFiliere ? "Filière mise à jour" : "Filière ajoutée");
       setIsOpen(false);
       resetForm();
@@ -75,7 +80,12 @@ export const AdminFilieres = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departements"] });
       queryClient.invalidateQueries({ queryKey: ["filieres"] });
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
+      queryClient.invalidateQueries({ queryKey: ["ues"] });
+      queryClient.invalidateQueries({ queryKey: [ "matieres" ] });
+      queryClient.invalidateQueries({ queryKey: [ "global-referentiel" ] });
       toast.success("Filière supprimée");
     },
     onError: (error) => {

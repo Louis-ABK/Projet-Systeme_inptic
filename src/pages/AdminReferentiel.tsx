@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/AppHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { AdminDepartements } from "@/components/admin/AdminDepartements";
 import { AdminFilieres } from "@/components/admin/AdminFilieres";
 import { AdminClasses } from "@/components/admin/AdminClasses";
@@ -10,12 +13,16 @@ import { AdminMatieres } from "@/components/admin/AdminMatieres";
 
 const AdminReferentiel = () => {
   const [activeTab, setActiveTab] = useState("departements");
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader hideClasseSelector />
       <div className="container mx-auto p-4 max-w-6xl space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-4 mb-4">
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Gestion du Référentiel</h1>
             <p className="text-muted-foreground mt-1">Gérez les départements, filières, classes, UEs et matières de l'université.</p>

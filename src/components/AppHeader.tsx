@@ -5,20 +5,37 @@ import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router-dom";
 import { ClasseSelector } from "@/components/ClasseSelector";
 import { useClasse } from "@/contexts/ClasseContext";
-import { DEPARTEMENTS, FILIERES_MAP } from "@/data/referentiel";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export const AppHeader = ({ hideClasseSelector }: { hideClasseSelector?: boolean }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { departement, filiere, niveau } = useClasse();
 
+  const { data: departements } = useQuery({
+    queryKey: ["departements"],
+    queryFn: async () => {
+      const { data } = await supabase.from("departements").select("*");
+      return data || [];
+    },
+  });
+
+  const { data: filieres } = useQuery({
+    queryKey: ["filieres"],
+    queryFn: async () => {
+      const { data } = await supabase.from("filieres").select("*");
+      return data || [];
+    },
+  });
+
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
   };
 
-  const deptLibelle = departement ? DEPARTEMENTS.find(d => d.code === departement)?.libelle : null;
-  const filiereLibelle = filiere ? FILIERES_MAP[filiere]?.libelle : null;
+  const deptLibelle = departement ? departements?.find(d => d.code === departement)?.libelle : null;
+  const filiereLibelle = filiere ? filieres?.find(f => f.code === filiere)?.libelle : null;
 
   return (
     <header className="bg-gradient-header text-primary-foreground shadow-elegant">

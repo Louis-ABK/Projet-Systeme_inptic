@@ -47,6 +47,11 @@ export const AdminDepartements = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departements"] });
+      queryClient.invalidateQueries({ queryKey: ["filieres"] });
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
+      queryClient.invalidateQueries({ queryKey: ["ues"] });
+      queryClient.invalidateQueries({ queryKey: [ "matieres" ] });
+      queryClient.invalidateQueries({ queryKey: [ "global-referentiel" ] });
       toast.success(editingDept ? "Département mis à jour" : "Département ajouté");
       setIsOpen(false);
       resetForm();
@@ -63,6 +68,11 @@ export const AdminDepartements = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departements"] });
+      queryClient.invalidateQueries({ queryKey: ["filieres"] });
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
+      queryClient.invalidateQueries({ queryKey: ["ues"] });
+      queryClient.invalidateQueries({ queryKey: [ "matieres" ] });
+      queryClient.invalidateQueries({ queryKey: [ "global-referentiel" ] });
       toast.success("Département supprimé");
     },
     onError: (error) => {

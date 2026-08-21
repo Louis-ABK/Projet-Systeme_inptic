@@ -38,7 +38,7 @@ export const AdminUEs = () => {
   const { data: classes } = useQuery({
     queryKey: ["classes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("classes").select("id, code, libelle, filiere:filieres(code)").order("code");
+      const { data, error } = await supabase.from("classes").select("*, filiere:filieres(code, departement:departements(code))").order("code");
       if (error) throw error;
       return data as any[];
     },
@@ -71,7 +71,12 @@ export const AdminUEs = () => {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departements"] });
+      queryClient.invalidateQueries({ queryKey: ["filieres"] });
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
       queryClient.invalidateQueries({ queryKey: ["ues"] });
+      queryClient.invalidateQueries({ queryKey: [ "matieres" ] });
+      queryClient.invalidateQueries({ queryKey: [ "global-referentiel" ] });
       toast.success(editingUE ? "UE mise à jour" : "UE ajoutée");
       setIsOpen(false);
       resetForm();
@@ -87,7 +92,12 @@ export const AdminUEs = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departements"] });
+      queryClient.invalidateQueries({ queryKey: ["filieres"] });
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
       queryClient.invalidateQueries({ queryKey: ["ues"] });
+      queryClient.invalidateQueries({ queryKey: [ "matieres" ] });
+      queryClient.invalidateQueries({ queryKey: [ "global-referentiel" ] });
       toast.success("UE supprimée");
     },
     onError: (error) => {
