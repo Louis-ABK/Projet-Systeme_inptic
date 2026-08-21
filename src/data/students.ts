@@ -119,11 +119,24 @@ export const getCredits = (s: Student, sem: 's5' | 's6'): number => {
     const sum = ueSubjects.reduce((a, b) => a + (grades[b.key] || 0) * b.coef, 0);
     const moyUE = totalCoef ? sum / totalCoef : 0;
 
-    // Note éliminatoire dans l'UE → pas de compensation possible pour cette UE
     const hasElim = hasEliminatoryInUE(grades, ueSubjects);
-    // UE acquise si moyUE >= 10, ou par compensation si moy semestre >= 10 ET pas de note élim dans l'UE
-    if (moyUE >= 10 || (moyemSem >= 10 && !hasElim)) {
-      credits += ueSubjects.reduce((a, b) => a + b.credits, 0);
+    const ueAcquise = moyUE >= 10;
+    const ueCompensee = !ueAcquise && moyemSem >= 10 && !hasElim;
+
+    if (ueAcquise || ueCompensee) {
+      // Nouvelle règle : le crédit d'une matière avec < ELIMINATORY_THRESHOLD n'est pas attribué
+      credits += ueSubjects.reduce((a, b) => {
+        const v = grades[b.key];
+        const isElim = typeof v === 'number' && v >= 0 && v < ELIMINATORY_THRESHOLD;
+        return a + (isElim ? 0 : b.credits);
+      }, 0);
+    } else {
+      // UE non acquise, non compensée : on donne quand même les crédits des matières >= 10
+      credits += ueSubjects.reduce((a, b) => {
+        const v = grades[b.key];
+        const isAcquired = typeof v === 'number' && v >= 10;
+        return a + (isAcquired ? b.credits : 0);
+      }, 0);
     }
   }
   return credits;

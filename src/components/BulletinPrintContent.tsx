@@ -96,10 +96,22 @@ const SemesterBulletin = ({
     const hasElim = hasEliminatoryInUE(grades as Record<string, number>, subs);
     const ueAcquise = m >= 10;
     const ueCompensee = !ueAcquise && semMoy >= 10 && !hasElim;
+    let acquired = 0;
+    if (ueAcquise || ueCompensee) {
+      // Nouvelle règle: même si acquise ou compensée, on n'attribue pas le crédit des matières avec < ELIMINATORY_THRESHOLD
+      acquired = subs.reduce((a, b) => {
+        const v = (grades as any)[b.key] as number;
+        const isElim = typeof v === 'number' && v >= 0 && v < ELIMINATORY_THRESHOLD;
+        return a + (isElim ? 0 : b.credits);
+      }, 0);
+    } else {
+      acquired = creditsForUE(ue);
+    }
+
     return {
       name: ue,
       total: totalC,
-      acquired: (ueAcquise || ueCompensee) ? totalC : creditsForUE(ue),
+      acquired,
       ueAcquise,
       ueCompensee,
       hasElim,
